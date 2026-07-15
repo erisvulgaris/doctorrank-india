@@ -1,0 +1,171 @@
+// DoctorRank India — Prisma Schema
+// Modular schema designed to scale across verticals (healthcare, lawyers, schools, etc.)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Geographic
+// ============================================================
+
+model City {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  state     String
+  slug      String    @unique
+  lat       Float
+  lng       Float
+  createdAt DateTime  @default(now())
+  doctors   Doctor[]
+  hospitals Hospital[]
+}
+
+// ============================================================
+// Taxonomy — Specialty & Condition (reusable across verticals)
+// ============================================================
+
+model Specialty {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  slug        String      @unique
+  tagline     String
+  description String
+  icon        String
+  conditions  Condition[]
+  doctors     Doctor[]
+  createdAt   DateTime    @default(now())
+}
+
+model Condition {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  slug          String   @unique
+  tagline       String
+  overview      String
+  symptoms      String   // JSON array
+  causes        String   // JSON array
+  treatments    String   // JSON array
+  whenToSeeDoc  String
+  faqs          String   // JSON array of {q,a}
+  specialtyId   String
+  specialty     Specialty @relation(fields: [specialtyId], references: [id])
+  doctors       Doctor[]
+  createdAt     DateTime @default(now())
+}
+
+// ============================================================
+// Core Entities
+// ============================================================
+
+model Hospital {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  slug          String   @unique
+  description   String
+  cityId        String
+  city          City     @relation(fields: [cityId], references: [id])
+  address       String
+  lat           Float
+  lng           Float
+  phone         String
+  emergencyPhone String
+  departments   String   // JSON
+  facilities    String   // JSON
+  insurance     String   // JSON
+  roomCategories String  // JSON
+  rating        Float    @default(0)
+  reviewCount   Int      @default(0)
+  photos        String   // JSON
+  createdAt     DateTime @default(now())
+  doctors       Doctor[]
+}
+
+model Doctor {
+  id                  String   @id @default(cuid())
+  name                String   @unique
+  slug                String   @unique
+  specialtyId         String
+  specialty           Specialty @relation(fields: [specialtyId], references: [id])
+  hospitalId          String?
+  hospital            Hospital? @relation(fields: [hospitalId], references: [id])
+  cityId              String
+  city                City     @relation(fields: [cityId], references: [id])
+
+  // Professional
+  qualifications      String
+  registrationNumber  String
+  experienceYears     Int
+  languages           String   // JSON
+  consultationFee     Int
+  about               String
+
+  // Ranking factors (0-100 each, used to compute doctorRank)
+  profileCompleteness Float   @default(0)
+  responseRate        Float   @default(0)
+  reviewCount         Int     @default(0)
+  reviewQuality       Float   @default(0)
+  publishedResearch   Int     @default(0)
+  profileFreshness    Float   @default(0)
+  verificationScore   Float   @default(0)
+  doctorRank          Float   @default(0)
+
+  // Media
+  photoUrl            String
+  clinicPhotos        String   // JSON
+  videoIntroUrl       String?
+
+  // Clinical scope
+  conditionsTreated   String   // JSON
+  procedures          String   // JSON
+  timings             String   // JSON
+  acceptedInsurance   String   // JSON
+  affiliations        String   // JSON
+
+  // Location & contact
+  address             String
+  lat                 Float
+  lng                 Float
+  phone               String
+  whatsapp            String
+
+  isSponsored         Boolean  @default(false)
+  isVerified          Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  conditions          Condition[]
+  reviews             Review[]
+  appointments        Appointment[]
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  doctorId    String
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  patientName String
+  rating      Float
+  procedure   String?
+  comment     String
+  isVerified  Boolean  @default(false)
+  helpfulVotes Int    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  doctorId      String
+  doctor        Doctor   @relation(fields: [doctorId], references: [id])
+  patientName   String
+  patientPhone  String
+  patientEmail  String?
+  preferredDate DateTime
+  notes         String?
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+}

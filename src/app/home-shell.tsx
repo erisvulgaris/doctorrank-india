@@ -1,0 +1,199 @@
+'use client';
+
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SiteHeader } from '@/components/doctorrank/site-header';
+import { SiteFooter } from '@/components/doctorrank/site-footer';
+import { HomeView } from '@/components/doctorrank/home-view';
+import { SearchView } from '@/components/doctorrank/search-view';
+import { DoctorView } from '@/components/doctorrank/doctor-view';
+import { ConditionView } from '@/components/doctorrank/condition-view';
+import { SpecialtyView } from '@/components/doctorrank/specialty-view';
+import { HospitalView } from '@/components/doctorrank/hospital-view';
+import { ListView } from '@/components/doctorrank/list-view';
+import { RankingView } from '@/components/doctorrank/ranking-view';
+
+interface HomeShellProps {
+  cities: Array<{ slug: string; name: string }>;
+  specialties: any[];
+  conditions: any[];
+  hospitals: any[];
+  topDoctors: any[];
+  stats: { doctors: number; cities: number; specialties: number; hospitals: number };
+}
+
+type ViewState =
+  | { view: 'home' }
+  | { view: 'search'; q: string }
+  | { view: 'doctor'; slug: string }
+  | { view: 'condition'; slug: string }
+  | { view: 'specialty'; slug: string }
+  | { view: 'hospital'; slug: string }
+  | { view: 'specialties' }
+  | { view: 'conditions' }
+  | { view: 'hospitals' }
+  | { view: 'ranking' };
+
+function HomeShellInner(props: HomeShellProps) {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const [city, setCity] = useState<string>('');
+
+  // Derive initial view from URL search params
+  const getInitialView = (): ViewState => {
+    const view = sp.get('view') || 'home';
+    switch (view) {
+      case 'search':     return { view: 'search', q: sp.get('q') || '' };
+      case 'doctor':     return { view: 'doctor', slug: sp.get('slug') || '' };
+      case 'condition':  return { view: 'condition', slug: sp.get('slug') || '' };
+      case 'specialty':  return { view: 'specialty', slug: sp.get('slug') || '' };
+      case 'hospital':   return { view: 'hospital', slug: sp.get('slug') || '' };
+      case 'specialties':return { view: 'specialties' };
+      case 'conditions': return { view: 'conditions' };
+      case 'hospitals':  return { view: 'hospitals' };
+      case 'ranking':    return { view: 'ranking' };
+      default:           return { view: 'home' };
+    }
+  };
+
+  const [state, setState] = useState<ViewState>(getInitialView);
+
+  // Update URL on view change (shareable + back button works)
+  const updateUrl = useCallback((next: ViewState) => {
+    const params = new URLSearchParams();
+    if (next.view !== 'home') params.set('view', next.view);
+    if (next.view === 'search') params.set('q', next.q);
+    if (['doctor','condition','specialty','hospital'].includes(next.view)) {
+      params.set('slug', (next as any).slug);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : '/', { scroll: false });
+  }, [router]);
+
+  const navigate = useCallback((view: string, payload?: any) => {
+    let next: ViewState;
+    switch (view) {
+      case 'home':        next = { view: 'home' }; break;
+      case 'search':      next = { view: 'search', q: payload?.q || '' }; break;
+      case 'doctor':      next = { view: 'doctor', slug: payload?.slug || '' }; break;
+      case 'condition':   next = { view: 'condition', slug: payload?.slug || '' }; break;
+      case 'specialty':   next = { view: 'specialty', slug: payload?.slug || '' }; break;
+      case 'hospital':    next = { view: 'hospital', slug: payload?.slug || '' }; break;
+      case 'specialties': next = { view: 'specialties' }; break;
+      case 'conditions':  next = { view: 'conditions' }; break;
+      case 'hospitals':   next = { view: 'hospitals' }; break;
+      case 'ranking':     next = { view: 'ranking' }; break;
+      default:            next = { view: 'home' };
+    }
+    setState(next);
+    updateUrl(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [updateUrl]);
+
+  const handleSearch = useCallback((q: string) => {
+    navigate('search', { q });
+  }, [navigate]);
+
+  // Keyboard shortcut: '/' to focus search (handled by clicking the search box in header)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        navigate('search');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navigate]);
+
+  // Lookup entities by slug
+  const findSpecialty = (slug: string) => props.specialties.find((s) => s.slug === slug);
+  const findCondition = (slug: string) => props.conditions.find((c) => c.slug === slug);
+  const findHospital  = (slug: string) => props.hospitals.find((h) => h.slug === slug);
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader onNavigate={navigate} currentView={state.view} />
+
+      <main className="flex-1">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={state.view + (state.view === 'search' ? state.q : '') + (['doctor','condition','specialty','hospital'].includes(state.view) ? (state as any).slug : '')}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {state.view === 'home' && (
+              <HomeView
+                onNavigate={navigate}
+                onSearch={handleSearch}
+                cities={props.cities}
+                city={city}
+                onCityChange={setCity}
+                topDoctors={props.topDoctors}
+                specialties={props.specialties}
+                conditions={props.conditions}
+                stats={props.stats}
+              />
+            )}
+
+            {state.view === 'search' && (
+              <SearchView
+                initialQuery={state.q}
+                onNavigate={navigate}
+                onSearch={handleSearch}
+                cities={props.cities}
+                city={city}
+                onCityChange={setCity}
+              />
+            )}
+
+            {state.view === 'doctor' && (
+              <DoctorView slug={state.slug} onNavigate={navigate} onBack={() => navigate('search')} />
+            )}
+
+            {state.view === 'condition' && (
+              <ConditionView condition={findCondition(state.slug)} onNavigate={navigate} onSearch={handleSearch} />
+            )}
+
+            {state.view === 'specialty' && (
+              <SpecialtyView specialty={findSpecialty(state.slug)} onNavigate={navigate} onSearch={handleSearch} />
+            )}
+
+            {state.view === 'hospital' && (
+              <HospitalView hospital={findHospital(state.slug)} onNavigate={navigate} />
+            )}
+
+            {state.view === 'specialties' && (
+              <ListView kind="specialties" items={props.specialties} onNavigate={navigate} onSearch={handleSearch} />
+            )}
+
+            {state.view === 'conditions' && (
+              <ListView kind="conditions" items={props.conditions} onNavigate={navigate} onSearch={handleSearch} />
+            )}
+
+            {state.view === 'hospitals' && (
+              <ListView kind="hospitals" items={props.hospitals} onNavigate={navigate} onSearch={handleSearch} />
+            )}
+
+            {state.view === 'ranking' && (
+              <RankingView onNavigate={navigate} />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      <SiteFooter onNavigate={navigate} />
+    </div>
+  );
+}
+
+export function HomeShell(props: HomeShellProps) {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <HomeShellInner {...props} />
+    </Suspense>
+  );
+}
