@@ -8,6 +8,127 @@ for its public API surface (URLs, component props, database schema).
 
 ---
 
+## [Unreleased] — Iteration 3 (2026-07-17)
+
+**Theme:** Closing the patient–doctor feedback loop — connecting patient actions
+(appointments + reviews) to the doctor dashboard, with honest messaging and
+real rating data.
+
+### User-facing improvements
+
+- **Patient review submission** — patients can now write a review directly on
+  any doctor's profile page. The form includes a name field, an optional
+  procedure/condition field, an interactive 5-star rating (with hover preview
+  and "Excellent" / "Very Good" / "Good" / "Fair" / "Poor" labels), and a
+  comment field with a 2000-character limit and live counter. Inline
+  validation, loading spinner, error banner, and a privacy note ("your phone
+  and email are never collected"). On success, the review appears immediately
+  at the top of the reviews list without a page reload.
+- **Doctor replies now visible on the public profile** — when a doctor replies
+  to a review from their dashboard, the reply appears under that review on the
+  public doctor profile page, styled in a branded blue panel with a
+  "Doctor's reply" label and relative timestamp. This completes the feedback
+  loop: patient writes review → doctor replies → patient sees the reply.
+- **Real rating distribution** — the 5-star breakdown bars on the doctor
+  profile were previously hardcoded (78% / 18% / 3% / 1% / 0%). They now
+  compute from the actual reviews, showing both the count and percentage
+  for each star level, with animated bars.
+- **Honest booking confirmation** — the booking success message previously
+  claimed "A confirmation has been sent via WhatsApp, SMS, and email" but
+  only WhatsApp is actually wired up. Now says "Appointment requested with
+  [doctor]. The doctor will confirm shortly." — accurate and sets the right
+  expectation.
+- **Fixed appointment status flow** — new bookings now start as `"pending"`
+  instead of `"confirmed"`. This means the doctor dashboard's appointment
+  management (Confirm / Complete / Cancel buttons) is actually useful:
+  patient books → "pending" → doctor confirms → "confirmed" → doctor
+  completes → "completed". Previously everything arrived as "confirmed"
+  and the doctor had no action to take.
+- **Updated booking modal copy** — title changed from "Appointment confirmed"
+  to "Appointment requested", status badge shows "Pending" in amber, and the
+  WhatsApp button reads "Message clinic on WhatsApp" (not "Send WhatsApp
+  confirmation").
+- **Unverified badge** — reviews that haven't been admin-verified now show
+  an "Unverified" badge (instead of only showing a badge for verified ones).
+- **Empty state** — when a doctor has no reviews, the section shows a
+  friendly empty state with a star icon and "Be the first to share your
+  experience" prompt.
+
+### Functional / technical changes
+
+- **`src/app/api/appointments/route.ts`** — rewrote the POST handler:
+  - Added field-level validation (returns `{ error, errors }` on failure).
+  - Future-date validation (rejects past dates).
+  - Creates appointments with `status: 'pending'` (was `'confirmed'`).
+  - Updated confirmation message to be honest about what's sent.
+  - Trims/normalizes all string inputs.
+- **`src/app/api/reviews/route.ts`** — new file:
+  - `POST` endpoint for public review submission.
+  - Validates: name (2–80 chars), rating (1–5), comment (10–2000 chars),
+    optional procedure (text).
+  - Creates review with `isVerified: false`.
+  - **Recalculates the doctor's aggregate review stats** after each new
+    review: `reviewCount`, `reviewQuality` (average rating × 20), and
+    `doctorRank` (full 7-factor recalculation).
+  - Returns the created review object for optimistic UI update.
+- **`src/components/doctorrank/doctor-view.tsx`** — replaced the inline
+  reviews section with two new components:
+  - `ReviewSection` — manages local review state (so new reviews appear
+    without a refetch), computes the real rating distribution, shows the
+    "Write a review" button, and renders each review with its doctor reply
+    (if any). Uses the "adjust state during render" pattern to sync when
+    the `doctorId` prop changes (navigating to a different doctor).
+  - `ReviewForm` — accessible review submission form with star-rating
+    radio group (`role="radiogroup"` + `role="radio"` + `aria-checked`),
+    inline validation, loading state, and error banner.
+  - Also updated the booking modal's success state: "Appointment requested"
+    title, "Pending" status badge (amber), "Message clinic on WhatsApp"
+    button text, and the honest confirmation message.
+
+### Validation performed
+
+- `bun run lint` — **passes** (0 errors, 0 warnings).
+- E2E API test via curl:
+  - `POST /api/reviews` with valid data → 200, returns review object.
+  - `POST /api/reviews` with short comment → 400, validation error
+    "Please write at least 10 characters." ✅
+  - `POST /api/appointments` with valid data → 200, `status: "pending"`
+    (was "confirmed" before this iteration). ✅
+- Browser test via Agent Browser (desktop 1440×900):
+  - Doctor profile → "Write a review" button visible.
+  - Clicked "Write a review" → form appears with name, procedure, star
+    rating, and comment fields.
+  - Filled form (Rohit Sharma, Hair Fall, 5 stars, comment) → clicked
+    "Submit review" → review appears immediately at top of list.
+  - Review count updated from 3 to 4 total.
+  - Booking modal → "Appointment requested" title, "Pending" status badge,
+    "Message clinic on WhatsApp" button. ✅
+  - Logged in as doctor → Appointments tab shows new pending appointments
+    (Anita Kumar + Test Patient). ✅
+  - Reviews tab shows new reviews with "Reply" buttons.
+  - Replied to Rohit Sharma's review → reply posted.
+  - Viewed public profile → "DOCTOR'S REPLY" panel visible under the
+    review with the reply text. ✅
+
+### Known limitations / follow-up work
+
+- **No rate limiting on review submission.** A malicious user could spam
+  reviews. Add IP-based rate limiting (e.g. 3 reviews per doctor per hour
+  per IP) in a future iteration.
+- **No spam/profanity filter.** Reviews are published immediately. The
+  admin Reviews Moderation module exists but reviews don't enter a
+  moderation queue — they're just `isVerified: false` until an admin
+  manually verifies them.
+- **No "helpful" voting.** The "Helpful (N)" button is display-only.
+  Wiring it up would require a `POST /api/reviews/:id/helpful` endpoint.
+- **Review stats recalculation is synchronous.** Each new review triggers
+  a full doctor stats recalculation (3 DB queries). For production scale,
+  move this to a background job.
+- **The review form doesn't collect proof of visit.** A future iteration
+  could allow uploading an appointment receipt to auto-verify the review.
+
+---
+
 ## [Unreleased] — Iteration 2 (2026-07-17)
 
 **Theme:** Full authentication system + private doctor dashboard with real backend functionality.

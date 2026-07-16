@@ -345,79 +345,7 @@ export function DoctorView({ slug, onNavigate, onBack }: DoctorViewProps) {
           </section>
 
           {/* Reviews */}
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6">
-            <div className="flex items-end justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Patient reviews</h2>
-              <span className="text-[12px] text-muted-foreground">{reviews.length} verified reviews</span>
-            </div>
-            <div className="mt-4 flex items-center gap-4 rounded-xl bg-muted/40 p-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-foreground">{avgRating}</div>
-                <div className="flex items-center gap-0.5">
-                  {[1,2,3,4,5].map((s) => (
-                    <Star key={s} className={`h-3 w-3 ${s <= Math.round(Number(avgRating)) ? 'fill-amber-400 text-amber-400' : 'text-border'}`} />
-                  ))}
-                </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">{d.reviewCount} total</div>
-              </div>
-              <div className="flex-1 space-y-1">
-                {[5,4,3,2,1].map((s) => {
-                  const pct = s === 5 ? 78 : s === 4 ? 18 : s === 3 ? 3 : s === 2 ? 1 : 0;
-                  return (
-                    <div key={s} className="flex items-center gap-2">
-                      <span className="w-3 text-[11px] text-muted-foreground">{s}</span>
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="w-8 text-right text-[11px] tabular-nums text-muted-foreground">{pct}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {reviews.slice(0, 5).map((r: any, i: number) => (
-                <motion.div
-                  key={r.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: i * 0.04 }}
-                  className="rounded-xl border border-border bg-background p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand">
-                        {r.patientName[0]}
-                      </div>
-                      <div>
-                        <div className="text-[13px] font-semibold text-foreground">{r.patientName}</div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {r.procedure} · {relativeTime(r.createdAt)}
-                        </div>
-                      </div>
-                    </div>
-                    {r.isVerified && (
-                      <span className="rounded-full bg-emerald-soft px-2 py-0.5 text-[10px] font-semibold text-emerald">
-                        Verified patient
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-2 flex items-center gap-0.5">
-                    {[1,2,3,4,5].map((s) => (
-                      <Star key={s} className={`h-3.5 w-3.5 ${s <= Math.round(r.rating) ? 'fill-amber-400 text-amber-400' : 'text-border'}`} />
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[13px] leading-relaxed text-foreground/90">&ldquo;{r.comment}&rdquo;</p>
-                  <button className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
-                    <ThumbsUp className="h-3 w-3" /> Helpful ({r.helpfulVotes})
-                  </button>
-                </motion.div>
-              ))}
-            </div>
-          </section>
+          <ReviewSection doctorId={d.id} reviews={reviews} avgRating={avgRating} reviewCount={d.reviewCount} />
 
           {/* Related doctors */}
           {data.related?.length > 0 && (
@@ -538,6 +466,410 @@ export function DoctorView({ slug, onNavigate, onBack }: DoctorViewProps) {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// ============================================================
+// ReviewSection — public reviews list with real rating distribution,
+// doctor replies, and a patient review submission form.
+// ============================================================
+
+function ReviewSection({
+  doctorId,
+  reviews,
+  avgRating,
+  reviewCount,
+}: {
+  doctorId: string;
+  reviews: any[];
+  avgRating: string;
+  reviewCount: number;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [localReviews, setLocalReviews] = useState(reviews);
+
+  // If the reviews prop changes (e.g. navigating to a different doctor), sync.
+  // Using the "adjust state during render" pattern to satisfy ESLint.
+  const [prevDoctorId, setPrevDoctorId] = useState(doctorId);
+  if (prevDoctorId !== doctorId) {
+    setPrevDoctorId(doctorId);
+    setLocalReviews(reviews);
+    setShowForm(false);
+  }
+
+  // Compute rating distribution from real reviews
+  const distribution = [5, 4, 3, 2, 1].map((stars) => {
+    const count = localReviews.filter((r) => Math.round(r.rating) === stars).length;
+    const pct = localReviews.length > 0 ? Math.round((count / localReviews.length) * 100) : 0;
+    return { stars, count, pct };
+  });
+
+  const handleReviewSubmitted = (newReview: any) => {
+    setLocalReviews((prev) => [newReview, ...prev]);
+    setShowForm(false);
+  };
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Patient reviews</h2>
+          <span className="text-[12px] text-muted-foreground">{localReviews.length} {localReviews.length === 1 ? 'review' : 'reviews'}</span>
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3 py-2 text-[12px] font-semibold text-white shadow-card transition-all hover:bg-brand/90 sm:text-[13px]"
+          >
+            <Star className="h-3.5 w-3.5" /> Write a review
+          </button>
+        )}
+      </div>
+
+      {/* Rating summary */}
+      <div className="mt-4 flex items-center gap-4 rounded-xl bg-muted/40 p-4">
+        <div className="text-center">
+          <div className="text-3xl font-bold text-foreground">{avgRating}</div>
+          <div className="flex items-center justify-center gap-0.5">
+            {[1,2,3,4,5].map((s) => (
+              <Star key={s} className={`h-3 w-3 ${s <= Math.round(Number(avgRating)) ? 'fill-amber-400 text-amber-400' : 'text-border'}`} />
+            ))}
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">{reviewCount} total</div>
+        </div>
+        <div className="flex-1 space-y-1">
+          {distribution.map(({ stars, count, pct }) => (
+            <div key={stars} className="flex items-center gap-2">
+              <span className="w-3 text-[11px] text-muted-foreground">{stars}</span>
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                <motion.div
+                  initial={{ width: 0 }}
+                  whileInView={{ width: `${pct}%` }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
+                  className="h-full rounded-full bg-amber-400"
+                />
+              </div>
+              <span className="w-10 text-right text-[11px] tabular-nums text-muted-foreground">
+                {count} ({pct}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Review form */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <ReviewForm
+              doctorId={doctorId}
+              onSubmitted={handleReviewSubmitted}
+              onCancel={() => setShowForm(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reviews list */}
+      <div className="mt-4 space-y-3">
+        {localReviews.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-background p-8 text-center">
+            <Star className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+            <h3 className="text-[14px] font-semibold text-foreground">No reviews yet</h3>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">
+              Be the first to share your experience with this doctor.
+            </p>
+          </div>
+        ) : (
+          localReviews.slice(0, 10).map((r: any, i: number) => (
+            <motion.div
+              key={r.id}
+              initial={{ opacity: 0, y: 6 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.3, delay: i * 0.04 }}
+              className="rounded-xl border border-border bg-background p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand">
+                    {r.patientName[0]}
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-semibold text-foreground">{r.patientName}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {r.procedure ? `${r.procedure} · ` : ''}{relativeTime(r.createdAt)}
+                    </div>
+                  </div>
+                </div>
+                {r.isVerified ? (
+                  <span className="rounded-full bg-emerald-soft px-2 py-0.5 text-[10px] font-semibold text-emerald">
+                    Verified patient
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                    Unverified
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-0.5">
+                {[1,2,3,4,5].map((s) => (
+                  <Star key={s} className={`h-3.5 w-3.5 ${s <= Math.round(r.rating) ? 'fill-amber-400 text-amber-400' : 'text-border'}`} />
+                ))}
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed text-foreground/90">&ldquo;{r.comment}&rdquo;</p>
+              <button className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                <ThumbsUp className="h-3 w-3" /> Helpful ({r.helpfulVotes})
+              </button>
+
+              {/* Doctor's reply — shown if it exists */}
+              {r.doctorReply && (
+                <div className="mt-3 rounded-lg bg-brand-soft/40 p-3">
+                  <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-brand">
+                    <MessageCircle className="h-3 w-3" />
+                    Doctor&apos;s reply
+                    {r.doctorReplyAt && (
+                      <span className="font-normal normal-case text-muted-foreground">· {relativeTime(r.doctorReplyAt)}</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-foreground/90">{r.doctorReply}</p>
+                </div>
+              )}
+            </motion.div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================
+// ReviewForm — patient review submission with validation.
+// ============================================================
+
+function ReviewForm({
+  doctorId,
+  onSubmitted,
+  onCancel,
+}: {
+  doctorId: string;
+  onSubmitted: (review: any) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [procedure, setProcedure] = useState('');
+  const [comment, setComment] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const newErrors: Record<string, string> = {};
+    if (!name.trim() || name.trim().length < 2) newErrors.name = 'Your name must be at least 2 characters.';
+    if (!rating || rating < 1 || rating > 5) newErrors.rating = 'Please choose a star rating.';
+    if (!comment.trim() || comment.trim().length < 10) newErrors.comment = 'Please write at least 10 characters.';
+    else if (comment.trim().length > 2000) newErrors.comment = 'Review must be 2000 characters or fewer.';
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doctorId,
+          patientName: name.trim(),
+          rating,
+          procedure: procedure.trim() || undefined,
+          comment: comment.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setSubmitError(json.error || 'Failed to submit review.');
+        if (json.errors) setErrors(json.errors);
+        return;
+      }
+      onSubmitted(json.review);
+    } catch {
+      setSubmitError('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-4 rounded-xl border border-brand/30 bg-brand-soft/20 p-4" noValidate>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-[14px] font-semibold text-foreground">Share your experience</h3>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={submitting}
+          className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+          aria-label="Cancel review"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Submit error */}
+      <AnimatePresence>
+        {submitError && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            className="overflow-hidden"
+          >
+            <div role="alert" className="flex items-start gap-2 rounded-lg bg-danger-soft px-3 py-2 text-[12px] text-danger">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="space-y-3">
+        {/* Name + Procedure */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Your name <span className="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              aria-invalid={!!errors.name}
+              className={`mt-1 w-full rounded-xl border bg-background px-3 py-2 text-[14px] outline-none focus:border-brand ${
+                errors.name ? 'border-danger' : 'border-border'
+              }`}
+              placeholder="e.g. Rohit S."
+            />
+            {errors.name && <p className="mt-1 text-[11px] font-medium text-danger" role="alert">{errors.name}</p>}
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Procedure / condition
+            </label>
+            <input
+              type="text"
+              value={procedure}
+              onChange={(e) => setProcedure(e.target.value)}
+              maxLength={100}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-[14px] outline-none focus:border-brand"
+              placeholder="optional (e.g. Hair Fall)"
+            />
+          </div>
+        </div>
+
+        {/* Star rating */}
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Your rating <span className="text-danger">*</span>
+          </label>
+          <div className="mt-1 flex items-center gap-1" role="radiogroup" aria-label="Star rating">
+            {[1,2,3,4,5].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setRating(s)}
+                onMouseEnter={() => setHoverRating(s)}
+                onMouseLeave={() => setHoverRating(0)}
+                role="radio"
+                aria-checked={rating === s}
+                aria-label={`${s} star${s > 1 ? 's' : ''}`}
+                className="rounded p-1 transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                <Star
+                  className={`h-7 w-7 transition-colors ${
+                    s <= (hoverRating || rating) ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted-foreground'
+                  }`}
+                />
+              </button>
+            ))}
+            {rating > 0 && (
+              <span className="ml-2 text-[12.5px] font-semibold text-foreground">
+                {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][rating]}
+              </span>
+            )}
+          </div>
+          {errors.rating && <p className="mt-1 text-[11px] font-medium text-danger" role="alert">{errors.rating}</p>}
+        </div>
+
+        {/* Comment */}
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Your review <span className="text-danger">*</span>
+          </label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            aria-invalid={!!errors.comment}
+            className={`mt-1 w-full rounded-xl border bg-background px-3 py-2 text-[14px] outline-none focus:border-brand ${
+              errors.comment ? 'border-danger' : 'border-border'
+            }`}
+            placeholder="Share details about your visit, the doctor's approach, wait times, and overall experience…"
+          />
+          <div className="mt-1 flex items-center justify-between">
+            {errors.comment ? (
+              <p className="text-[11px] font-medium text-danger" role="alert">{errors.comment}</p>
+            ) : (
+              <span />
+            )}
+            <span className="text-[10.5px] text-muted-foreground">{comment.length}/2000</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={submitting}
+          className="rounded-xl border border-border px-4 py-2 text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-[13px] font-semibold text-white shadow-card hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Submitting…
+            </>
+          ) : (
+            <>
+              Submit review
+              <Sparkles className="h-4 w-4" />
+            </>
+          )}
+        </button>
+      </div>
+      <p className="mt-2 text-center text-[10.5px] text-muted-foreground">
+        Reviews are public. Your name will be shown; your phone and email are never collected.
+      </p>
+    </form>
   );
 }
 
@@ -734,12 +1066,12 @@ function BookingModal({ doctor, onClose, onSubmit, submitted }: {
             <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-emerald-soft text-emerald">
               <CheckCircle2 className="h-6 w-6" />
             </div>
-            <h3 id="booking-modal-title" className="text-lg font-semibold text-foreground">Appointment confirmed</h3>
+            <h3 id="booking-modal-title" className="text-lg font-semibold text-foreground">Appointment requested</h3>
             <p className="mt-1 text-[13px] text-muted-foreground">{submitted.confirmation?.message}</p>
             <div className="mt-4 rounded-xl bg-muted/40 p-3 text-left text-[12px]">
               <div className="flex justify-between"><span className="text-muted-foreground">Appointment ID</span><span className="font-mono font-semibold">{submitted.appointmentId?.slice(-8).toUpperCase()}</span></div>
               <div className="mt-1 flex justify-between"><span className="text-muted-foreground">Doctor</span><span className="font-medium">{doctor.name}</span></div>
-              <div className="mt-1 flex justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium capitalize">{submitted.status}</span></div>
+              <div className="mt-1 flex justify-between"><span className="text-muted-foreground">Status</span><span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold capitalize text-amber-700">{submitted.status}</span></div>
             </div>
             <a
               href={submitted.confirmation?.whatsappUrl}
@@ -747,7 +1079,7 @@ function BookingModal({ doctor, onClose, onSubmit, submitted }: {
               rel="noopener noreferrer"
               className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald px-4 py-2.5 text-[13px] font-semibold text-white shadow-card hover:bg-emerald/90"
             >
-              <MessageCircle className="h-4 w-4" /> Send WhatsApp confirmation
+              <MessageCircle className="h-4 w-4" /> Message clinic on WhatsApp
             </a>
             <button onClick={onClose} className="mt-2 w-full rounded-xl border border-border py-2 text-[13px] font-medium text-foreground hover:bg-muted">
               Close
@@ -904,7 +1236,7 @@ function BookingModal({ doctor, onClose, onSubmit, submitted }: {
               )}
             </button>
             <p className="mt-2 text-center text-[11px] text-muted-foreground">
-              Confirmation via WhatsApp · SMS · Email · Press <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">Esc</kbd> to close
+              Confirmation via WhatsApp · The doctor will confirm your appointment · Press <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">Esc</kbd> to close
             </p>
           </div>
         )}

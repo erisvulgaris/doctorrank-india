@@ -622,6 +622,34 @@ subset of these rather than tackling all at once.
 
 A running log of important discoveries and decisions, newest first.
 
+### 2026-07-17 — Iteration 3
+
+- **Discovered:** The booking API was setting `status: 'confirmed'` on
+  new appointments, making the doctor dashboard's Confirm/Complete/Cancel
+  buttons useless (everything arrived already confirmed). Fixed to
+  `status: 'pending'` so the doctor has a real workflow.
+- **Discovered:** The booking confirmation message claimed "WhatsApp, SMS,
+  and email" but only WhatsApp is wired up. This was dishonest — fixed
+  to "Appointment requested. The doctor will confirm shortly."
+- **Discovered:** The 5-star rating distribution on the doctor profile was
+  hardcoded (78% / 18% / 3% / 1% / 0%). Now computed from actual reviews.
+- **Decision:** Patient reviews are submitted with `isVerified: false` and
+  published immediately. There is no moderation queue — the admin Reviews
+  Moderation module can verify them later. This prioritizes freshness over
+  gatekeeping; for production, add a spam filter.
+- **Decision:** The `ReviewSection` component keeps a `localReviews` state
+  that's synced from the `reviews` prop using the "adjust state during
+  render" pattern (same as `DoctorImage`). This allows optimistic updates
+  (new review appears instantly) without a full page refetch.
+- **Decision:** When a patient submits a review, the server recalculates
+  the doctor's `reviewCount`, `reviewQuality`, and `doctorRank` synchronously.
+  This is correct but expensive (3 DB queries per review). For production,
+  move to a background job.
+- **Decision:** The star rating input uses `role="radiogroup"` with
+  `role="radio"` + `aria-checked` on each star button, rather than a
+  custom ARIA pattern. This gives screen-reader users a familiar
+  "1 of 5 selected" experience.
+
 ### 2026-07-17 — Iteration 2
 
 - **Discovered (critical):** Prisma's `log: ['query']` in `src/lib/db.ts`
