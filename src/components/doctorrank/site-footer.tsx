@@ -4,7 +4,7 @@ import { HeartPulse, Twitter, Linkedin, Youtube } from 'lucide-react';
 
 export function SiteFooter({ onNavigate }: { onNavigate: (v: string, payload?: any) => void }) {
   return (
-    <footer className="mt-auto border-t border-border bg-card">
+    <footer className="mt-auto border-t border-border bg-card pb-20 lg:pb-0">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">

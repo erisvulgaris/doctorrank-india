@@ -31,7 +31,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
+  --color-secondary: var(--color-secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
@@ -41,9 +41,14 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-soft: var(--brand-soft);
+  --color-brand-deep: var(--brand-deep);
   --color-emerald: var(--emerald);
   --color-emerald-soft: var(--emerald-soft);
   --color-cyan: var(--cyan-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -51,61 +56,63 @@
   --radius-2xl: calc(var(--radius) + 8px);
 }
 
-/* DoctorRank India — Light mode only, premium SaaS aesthetic */
+/* DoctorRank India — Light mode only, medical premium aesthetic */
 :root {
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
-  /* Brand palette */
-  --brand: #1456D9;              /* Deep Medical Blue */
+  /* Brand palette — Medical */
+  --brand: #0B5FFF;              /* Medical Blue (more vivid) */
+  --brand-deep: #0A2E73;         /* Deep navy for text */
   --brand-foreground: #FFFFFF;
-  --brand-soft: #EBF1FE;
-  --emerald: #10B981;            /* Emerald Green */
-  --emerald-soft: #E7F8F1;
-  --cyan-soft: #E0F7FA;          /* Soft Cyan */
+  --brand-soft: #E8F0FF;
+  --emerald: #00B884;            /* Vital signs emerald */
+  --emerald-soft: #E6F9F1;
+  --cyan-soft: #DDF4FF;
+  --warning: #F59E0B;
+  --warning-soft: #FEF3C7;
+  --danger: #EF4444;
+  --danger-soft: #FEE2E2;
 
   /* Surfaces */
-  --background: #FCFCFD;         /* Warm White */
-  --foreground: #0B1220;         /* Near-black ink */
-  --card: #FFFFFF;               /* Pure White */
-  --card-foreground: #0B1220;
+  --background: #FAFBFD;         /* Warm clinical white */
+  --foreground: #0A1428;         /* Deep navy ink */
+  --card: #FFFFFF;
+  --card-foreground: #0A1428;
   --popover: #FFFFFF;
-  --popover-foreground: #0B1220;
+  --popover-foreground: #0A1428;
 
-  /* Primary = brand */
-  --primary: #1456D9;
+  --primary: #0B5FFF;
   --primary-foreground: #FFFFFF;
 
-  /* Secondary surfaces */
-  --secondary: #F4F6FB;
+  --color-secondary: #F1F4F9;
   --secondary-foreground: #1F2937;
-  --muted: #F4F6FB;
+  --muted: #F1F4F9;
   --muted-foreground: #64748B;
-  --accent: #EBF1FE;
-  --accent-foreground: #1456D9;
+  --accent: #E8F0FF;
+  --accent-foreground: #0B5FFF;
 
-  --destructive: #DC2626;
+  --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
 
-  /* Subtle borders */
-  --border: #E6E8EE;
-  --input: #E6E8EE;
-  --ring: #1456D9;
+  --border: #E5E9F0;
+  --input: #E5E9F0;
+  --ring: #0B5FFF;
 
-  /* Chart palette (on-brand) */
-  --chart-1: #1456D9;
-  --chart-2: #10B981;
+  /* Chart palette — medical-modern */
+  --chart-1: #0B5FFF;
+  --chart-2: #00B884;
   --chart-3: #06B6D4;
   --chart-4: #F59E0B;
   --chart-5: #EF4444;
 
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #0B1220;
-  --sidebar-primary: #1456D9;
+  --sidebar-foreground: #0A1428;
+  --sidebar-primary: #0B5FFF;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EBF1FE;
-  --sidebar-accent-foreground: #1456D9;
-  --sidebar-border: #E6E8EE;
-  --sidebar-ring: #1456D9;
+  --sidebar-accent: #E8F0FF;
+  --sidebar-accent-foreground: #0B5FFF;
+  --sidebar-border: #E5E9F0;
+  --sidebar-ring: #0B5FFF;
 }
 
 @layer base {
@@ -116,19 +123,29 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Mobile-first: prevent text size adjust */
+    -webkit-text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: 'cv11', 'ss01', 'ss03';
     letter-spacing: -0.011em;
+    /* Mobile: prevent overscroll bounce */
+    overscroll-behavior-y: none;
   }
   ::selection {
-    background-color: rgba(20, 86, 217, 0.15);
-    color: #0B1220;
+    background-color: rgba(11, 95, 255, 0.15);
+    color: #0A1428;
+  }
+  /* Touch-friendly tap targets on mobile */
+  @media (max-width: 768px) {
+    button, a {
+      touch-action: manipulation;
+    }
   }
 }
 
-/* Premium utilities */
+/* ============ Premium utilities ============ */
 @layer utilities {
   .glass {
     background: rgba(255, 255, 255, 0.72);
@@ -136,47 +153,79 @@
     -webkit-backdrop-filter: saturate(180%) blur(16px);
   }
   .glass-strong {
-    background: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.92);
     backdrop-filter: saturate(180%) blur(24px);
     -webkit-backdrop-filter: saturate(180%) blur(24px);
   }
   .shadow-premium {
     box-shadow:
-      0 1px 2px rgba(11, 18, 32, 0.04),
-      0 8px 24px -8px rgba(11, 18, 32, 0.08),
-      0 24px 48px -24px rgba(20, 86, 217, 0.12);
+      0 1px 2px rgba(10, 20, 40, 0.04),
+      0 8px 24px -8px rgba(10, 20, 40, 0.08),
+      0 24px 48px -24px rgba(11, 95, 255, 0.12);
   }
   .shadow-card {
     box-shadow:
-      0 1px 2px rgba(11, 18, 32, 0.04),
-      0 4px 16px -4px rgba(11, 18, 32, 0.06);
+      0 1px 2px rgba(10, 20, 40, 0.04),
+      0 4px 16px -4px rgba(10, 20, 40, 0.06);
   }
   .shadow-hover {
     box-shadow:
-      0 1px 2px rgba(11, 18, 32, 0.06),
-      0 12px 32px -8px rgba(11, 18, 32, 0.10),
-      0 32px 64px -24px rgba(20, 86, 217, 0.16);
+      0 1px 2px rgba(10, 20, 40, 0.06),
+      0 12px 32px -8px rgba(10, 20, 40, 0.10),
+      0 32px 64px -24px rgba(11, 95, 255, 0.18);
   }
   .text-balance {
     text-wrap: balance;
   }
   .grid-bg {
     background-image:
-      linear-gradient(to right, rgba(11, 18, 32, 0.04) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(11, 18, 32, 0.04) 1px, transparent 1px);
+      linear-gradient(to right, rgba(10, 20, 40, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(10, 20, 40, 0.04) 1px, transparent 1px);
     background-size: 56px 56px;
   }
   .dot-bg {
-    background-image: radial-gradient(rgba(20, 86, 217, 0.08) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(11, 95, 255, 0.10) 1px, transparent 1px);
     background-size: 24px 24px;
+  }
+  /* Medical cross pattern — unique medical motif */
+  .medical-pattern {
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(11, 95, 255, 0.06) 1px, transparent 1px),
+      radial-gradient(circle at 70% 60%, rgba(0, 184, 132, 0.06) 1px, transparent 1px),
+      radial-gradient(circle at 40% 80%, rgba(6, 182, 212, 0.04) 1px, transparent 1px);
+    background-size: 80px 80px, 100px 100px, 60px 60px;
+  }
+  /* Pulse ring around important elements */
+  .pulse-ring::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 0 0 rgba(0, 184, 132, 0.5);
+    animation: pulse-ring 2s infinite;
   }
   .mask-fade-b {
     -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
     mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
   }
+  .mask-fade-r {
+    -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
+    mask-image: linear-gradient(to right, black 70%, transparent 100%);
+  }
+  /* Hide scrollbar but keep functional */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Safe area for mobile (notch) */
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 }
 
-/* Custom scrollbar */
+/* ============ Custom scrollbar ============ */
 .scroll-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -185,20 +234,58 @@
   background: transparent;
 }
 .scroll-thin::-webkit-scrollbar-thumb {
-  background: rgba(11, 18, 32, 0.12);
+  background: rgba(10, 20, 40, 0.14);
   border-radius: 8px;
 }
 .scroll-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(11, 18, 32, 0.2);
+  background: rgba(10, 20, 40, 0.24);
 }
 
-/* Marquee animation for rotating search placeholder */
+/* ============ Animations ============ */
+
+/* ECG / heartbeat line — signature medical animation */
+@keyframes ecg-draw {
+  0% { stroke-dashoffset: 1000; }
+  100% { stroke-dashoffset: 0; }
+}
+.ecg-line {
+  stroke-dasharray: 1000;
+  animation: ecg-draw 3s ease-out forwards;
+}
+
+@keyframes ecg-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ecg-scroll {
+  animation: ecg-scroll 4s linear infinite;
+}
+
+/* Pulse ring */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(0, 184, 132, 0.5); }
+  70% { box-shadow: 0 0 0 12px rgba(0, 184, 132, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 184, 132, 0); }
+}
+
+/* Heartbeat — for vital signs */
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.08); }
+  50% { transform: scale(1); }
+  75% { transform: scale(1.04); }
+}
+.animate-heartbeat {
+  animation: heartbeat 1.4s ease-in-out infinite;
+}
+
+/* Rotating search placeholder */
 @keyframes marquee-fade {
   0%, 100% { opacity: 0; transform: translateY(8px); }
   10%, 90% { opacity: 1; transform: translateY(0); }
 }
 .animate-marquee-fade {
-  animation: marquee-fade 4s ease-in-out infinite;
+  animation: marquee-fade 3.6s ease-in-out infinite;
 }
 
 /* Shimmer for skeletons */
@@ -207,7 +294,43 @@
   100% { background-position: 1000px 0; }
 }
 .shimmer {
-  background: linear-gradient(90deg, #f4f6fb 0%, #e6e8ee 50%, #f4f6fb 100%);
+  background: linear-gradient(90deg, #f1f4f9 0%, #e5e9f0 50%, #f1f4f9 100%);
   background-size: 1000px 100%;
   animation: shimmer 2s infinite linear;
+}
+
+/* Number count-up subtle pulse */
+@keyframes count-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.animate-count-pulse {
+  animation: count-pulse 2s ease-in-out infinite;
+}
+
+/* Slide-in for bottom sheet on mobile */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Soft glow for primary CTAs */
+@keyframes soft-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(11, 95, 255, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(11, 95, 255, 0); }
+}
+.animate-soft-glow {
+  animation: soft-glow 2.4s ease-in-out infinite;
+}
+
+/* Medical cross float */
+@keyframes float-cross {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+.animate-float-cross {
+  animation: float-cross 6s ease-in-out infinite;
 }

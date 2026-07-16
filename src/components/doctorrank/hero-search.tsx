@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Sparkles, Mic, ArrowRight, X } from 'lucide-react';
+import { Search, Sparkles, Mic, ArrowRight, X, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface HeroSearchProps {
@@ -42,7 +42,6 @@ export function HeroSearch({
   const [loadingSug, setLoadingSug] = useState(false);
   const [listening, setListening] = useState(false);
 
-  // Rotate placeholder
   useEffect(() => {
     if (value || focused) return;
     const t = setInterval(() => {
@@ -51,7 +50,6 @@ export function HeroSearch({
     return () => clearInterval(t);
   }, [value, focused]);
 
-  // Fetch suggestions (debounced)
   useEffect(() => {
     if (!value || value.length < 1) {
       setSuggestions([]);
@@ -101,17 +99,18 @@ export function HeroSearch({
   };
 
   return (
-    <div className={`relative w-full ${compact ? '' : 'max-w-2xl mx-auto'}`}>
+    <div className={`relative w-full ${compact ? '' : 'mx-auto max-w-2xl'}`}>
       <div
-        className={`relative flex items-center gap-2 rounded-2xl border bg-card p-2 shadow-premium transition-all ${
+        className={`relative flex flex-col gap-2 rounded-2xl border bg-card p-2 shadow-premium transition-all sm:flex-row sm:items-center sm:gap-0 ${
           focused ? 'border-brand/60 ring-4 ring-brand/10' : 'border-border'
         }`}
       >
+        {/* City selector — pill on mobile, dropdown on desktop */}
         {cities.length > 0 && (
           <select
             value={city || ''}
             onChange={(e) => onCityChange?.(e.target.value)}
-            className="hidden h-10 shrink-0 rounded-xl border-0 bg-muted/60 px-3 text-[13px] font-medium text-foreground outline-none sm:block"
+            className="h-10 shrink-0 rounded-xl border-0 bg-muted/60 px-3 text-[13px] font-medium text-foreground outline-none sm:bg-transparent"
             aria-label="Select city"
           >
             <option value="">All India</option>
@@ -137,7 +136,7 @@ export function HeroSearch({
               }}
               placeholder=""
               aria-label="Search doctors, conditions, or symptoms"
-              className="w-full bg-transparent py-2.5 text-[15px] font-medium text-foreground outline-none placeholder:text-muted-foreground/0"
+              className="w-full bg-transparent py-2.5 text-[15px] font-medium text-foreground outline-none placeholder:text-muted-foreground/0 sm:text-[16px]"
             />
             {!value && !focused && (
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center">
@@ -148,7 +147,7 @@ export function HeroSearch({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.3 }}
-                    className="text-[15px] font-medium text-muted-foreground"
+                    className="text-[15px] font-medium text-muted-foreground sm:text-[16px]"
                   >
                     {PLACEHOLDERS[placeholderIdx]}
                   </motion.span>
@@ -180,7 +179,7 @@ export function HeroSearch({
 
         <button
           onClick={() => submit()}
-          className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 text-[14px] font-semibold text-white shadow-card transition-all hover:bg-brand/90 hover:shadow-hover sm:px-5"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-brand px-4 text-[14px] font-semibold text-white shadow-card transition-all hover:bg-brand/90 hover:shadow-hover sm:px-5"
         >
           <span>Search</span>
           <ArrowRight className="h-4 w-4" />
@@ -197,7 +196,7 @@ export function HeroSearch({
             transition={{ duration: 0.18 }}
             className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-border bg-popover shadow-premium"
           >
-            <div className="max-h-[420px] overflow-y-auto scroll-thin py-2">
+            <div className="max-h-[60vh] overflow-y-auto scroll-thin py-2">
               {loadingSug && (
                 <div className="px-4 py-3 text-[13px] text-muted-foreground">Searching…</div>
               )}
@@ -222,17 +221,17 @@ export function HeroSearch({
                     'bg-muted text-muted-foreground'
                   }`}>
                     {s.type === 'doctor' ? <Sparkles className="h-4 w-4" /> :
-                     s.type === 'specialty' ? <Sparkles className="h-4 w-4" /> :
+                     s.type === 'specialty' ? <Activity className="h-4 w-4" /> :
                      s.type === 'condition' ? <Search className="h-4 w-4" /> :
                      <Search className="h-4 w-4" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium text-foreground">{s.label}</div>
+                    <div className="truncate text-[13px] font-medium text-foreground sm:text-[14px]">{s.label}</div>
                     {s.sub && (
-                      <div className="truncate text-[11px] text-muted-foreground">{s.sub}</div>
+                      <div className="truncate text-[11px] text-muted-foreground sm:text-[12px]">{s.sub}</div>
                     )}
                   </div>
-                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <span className="hidden rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:inline">
                     {s.type}
                   </span>
                 </button>

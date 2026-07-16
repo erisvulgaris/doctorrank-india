@@ -13,6 +13,7 @@ import { SpecialtyView } from '@/components/doctorrank/specialty-view';
 import { HospitalView } from '@/components/doctorrank/hospital-view';
 import { ListView } from '@/components/doctorrank/list-view';
 import { RankingView } from '@/components/doctorrank/ranking-view';
+import { AdminShell } from '@/components/admin/admin-shell';
 
 interface HomeShellProps {
   cities: Array<{ slug: string; name: string }>;
@@ -33,14 +34,14 @@ type ViewState =
   | { view: 'specialties' }
   | { view: 'conditions' }
   | { view: 'hospitals' }
-  | { view: 'ranking' };
+  | { view: 'ranking' }
+  | { view: 'admin'; section: string };
 
 function HomeShellInner(props: HomeShellProps) {
   const router = useRouter();
   const sp = useSearchParams();
   const [city, setCity] = useState<string>('');
 
-  // Derive initial view from URL search params
   const getInitialView = (): ViewState => {
     const view = sp.get('view') || 'home';
     switch (view) {
@@ -53,13 +54,13 @@ function HomeShellInner(props: HomeShellProps) {
       case 'conditions': return { view: 'conditions' };
       case 'hospitals':  return { view: 'hospitals' };
       case 'ranking':    return { view: 'ranking' };
+      case 'admin':      return { view: 'admin', section: sp.get('section') || 'dashboard' };
       default:           return { view: 'home' };
     }
   };
 
   const [state, setState] = useState<ViewState>(getInitialView);
 
-  // Update URL on view change (shareable + back button works)
   const updateUrl = useCallback((next: ViewState) => {
     const params = new URLSearchParams();
     if (next.view !== 'home') params.set('view', next.view);
@@ -67,6 +68,7 @@ function HomeShellInner(props: HomeShellProps) {
     if (['doctor','condition','specialty','hospital'].includes(next.view)) {
       params.set('slug', (next as any).slug);
     }
+    if (next.view === 'admin') params.set('section', next.section);
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : '/', { scroll: false });
   }, [router]);
@@ -84,6 +86,7 @@ function HomeShellInner(props: HomeShellProps) {
       case 'conditions':  next = { view: 'conditions' }; break;
       case 'hospitals':   next = { view: 'hospitals' }; break;
       case 'ranking':     next = { view: 'ranking' }; break;
+      case 'admin':       next = { view: 'admin', section: payload?.section || 'dashboard' }; break;
       default:            next = { view: 'home' };
     }
     setState(next);
@@ -95,7 +98,6 @@ function HomeShellInner(props: HomeShellProps) {
     navigate('search', { q });
   }, [navigate]);
 
-  // Keyboard shortcut: '/' to focus search (handled by clicking the search box in header)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
@@ -107,10 +109,20 @@ function HomeShellInner(props: HomeShellProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [navigate]);
 
-  // Lookup entities by slug
   const findSpecialty = (slug: string) => props.specialties.find((s) => s.slug === slug);
   const findCondition = (slug: string) => props.conditions.find((c) => c.slug === slug);
   const findHospital  = (slug: string) => props.hospitals.find((h) => h.slug === slug);
+
+  // Admin mode renders full-screen, no public header/footer
+  if (state.view === 'admin') {
+    return (
+      <AdminShell
+        section={state.section}
+        onNavigate={navigate}
+        bootstrap={props}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col">

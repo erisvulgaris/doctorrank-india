@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   SlidersHorizontal, X, Map as MapIcon, List, Star, Clock,
   Languages, Wallet, Shield, ArrowUpDown, Sparkles, Brain, Loader2,
+  ChevronDown, CheckCircle2,
 } from 'lucide-react';
 import { HeroSearch } from './hero-search';
 import { DoctorCard, DoctorCardSkeleton } from './doctor-card';
@@ -42,7 +43,7 @@ export function SearchView({
   const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  const [showMap, setShowMap] = useState(true);
+  const [showMap, setShowMap] = useState(false); // hidden by default on mobile
   const [sort, setSort] = useState('rank');
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | undefined>();
   const [feeRange, setFeeRange] = useState<[number, number]>([0, 5000]);
@@ -52,7 +53,6 @@ export function SearchView({
   const [aiResult, setAiResult] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Run search
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -78,7 +78,6 @@ export function SearchView({
     return () => { cancelled = true; };
   }, [initialQuery, city]);
 
-  // AI symptom navigator
   const runAi = async () => {
     setAiLoading(true);
     setAiMode(true);
@@ -98,7 +97,6 @@ export function SearchView({
     }
   };
 
-  // Apply sorting + filtering
   const visibleDoctors = (() => {
     if (!results?.doctors) return [];
     let arr = results.doctors.filter((d) => {
@@ -117,7 +115,6 @@ export function SearchView({
     return arr;
   })();
 
-  // Map points
   const mapPoints = visibleDoctors.map((d) => ({
     id: d.id, type: 'doctor' as const,
     name: d.name, lat: d.lat, lng: d.lng,
@@ -125,7 +122,6 @@ export function SearchView({
     eta: `${Math.floor(Math.random() * 25) + 5} min`,
   }));
 
-  // Add hospital points
   if (results?.hospitals) {
     for (const h of results.hospitals.slice(0, 3)) {
       mapPoints.push({
@@ -141,11 +137,11 @@ export function SearchView({
     : { lat: 19.0760, lng: 72.8777 };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-16 lg:pb-0">
       {/* Search bar */}
-      <div className="sticky top-16 z-30 border-b border-border bg-background/80 backdrop-blur">
+      <div className="sticky top-14 z-30 border-b border-border bg-background/80 backdrop-blur sm:top-16">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="min-w-0 flex-1">
               <HeroSearch
                 initialValue={initialQuery}
@@ -163,21 +159,21 @@ export function SearchView({
             </div>
             <button
               onClick={() => setShowFilters((s) => !s)}
-              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-colors sm:text-[13px] ${
                 showFilters ? 'border-brand bg-brand-soft text-brand' : 'border-border bg-card text-muted-foreground hover:text-foreground'
               }`}
             >
               <SlidersHorizontal className="h-4 w-4" />
-              Filters
+              <span className="hidden sm:inline">Filters</span>
             </button>
             <button
               onClick={() => setShowMap((s) => !s)}
-              className={`hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors lg:inline-flex ${
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-colors sm:text-[13px] ${
                 showMap ? 'border-brand bg-brand-soft text-brand' : 'border-border bg-card text-muted-foreground hover:text-foreground'
               }`}
             >
-              {showMap ? <MapIcon className="h-4 w-4" /> : <List className="h-4 w-4" />}
-              {showMap ? 'Map view' : 'List view'}
+              {showMap ? <List className="h-4 w-4" /> : <MapIcon className="h-4 w-4" />}
+              <span className="hidden sm:inline">{showMap ? 'List' : 'Map'}</span>
             </button>
           </div>
 
@@ -190,20 +186,20 @@ export function SearchView({
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-2.5 rounded-xl border border-border bg-card p-3 sm:grid-cols-4 sm:gap-3 sm:p-4">
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sort by</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Sort by</label>
                     <select
                       value={sort}
                       onChange={(e) => setSort(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:border-brand"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12px] outline-none focus:border-brand sm:text-[13px]"
                     >
                       {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Fee: {formatINR(feeRange[0])} – {formatINR(feeRange[1])}
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
+                      Fee: {formatINR(feeRange[1])} max
                     </label>
                     <input
                       type="range" min={0} max={5000} step={500}
@@ -213,11 +209,11 @@ export function SearchView({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Min rating</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Min rating</label>
                     <select
                       value={minRating}
                       onChange={(e) => setMinRating(Number(e.target.value))}
-                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:border-brand"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12px] outline-none focus:border-brand sm:text-[13px]"
                     >
                       <option value={0}>Any rating</option>
                       <option value={3}>3.0+</option>
@@ -226,11 +222,11 @@ export function SearchView({
                     </select>
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Min experience</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Min experience</label>
                     <select
                       value={minExp}
                       onChange={(e) => setMinExp(Number(e.target.value))}
-                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:border-brand"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12px] outline-none focus:border-brand sm:text-[13px]"
                     >
                       <option value={0}>Any</option>
                       <option value={5}>5+ years</option>
@@ -246,13 +242,13 @@ export function SearchView({
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         {/* AI banner */}
         {!aiMode && initialQuery && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand/20 bg-gradient-to-r from-brand-soft via-card to-emerald-soft p-4"
+            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand/20 bg-gradient-to-r from-brand-soft via-card to-emerald-soft p-3 sm:p-4"
           >
             <div className="flex items-start gap-3">
               <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand text-white">
@@ -262,7 +258,7 @@ export function SearchView({
                 <div className="text-[13px] font-semibold text-foreground">
                   Try AI Symptom Navigator
                 </div>
-                <div className="text-[12px] text-muted-foreground">
+                <div className="text-[11.5px] text-muted-foreground sm:text-[12px]">
                   Convert &ldquo;{initialQuery}&rdquo; into matched specialties, conditions, and doctors — with reasoning.
                 </div>
               </div>
@@ -272,7 +268,7 @@ export function SearchView({
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-[12px] font-semibold text-white shadow-card hover:bg-brand/90"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              Run AI analysis
+              Run AI
             </button>
           </motion.div>
         )}
@@ -287,7 +283,7 @@ export function SearchView({
               className="mb-4 overflow-hidden"
             >
               {aiLoading ? (
-                <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 shadow-card">
+                <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-card sm:p-5">
                   <Loader2 className="h-5 w-5 animate-spin text-brand" />
                   <div>
                     <div className="text-[14px] font-semibold text-foreground">Analyzing symptoms…</div>
@@ -295,7 +291,7 @@ export function SearchView({
                   </div>
                 </div>
               ) : aiResult && (
-                <div className="rounded-2xl border border-brand/30 bg-card p-5 shadow-premium">
+                <div className="rounded-2xl border border-brand/30 bg-card p-4 shadow-premium sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-white">
@@ -315,12 +311,12 @@ export function SearchView({
                   </div>
 
                   {aiResult.matches?.map((m: any, i: number) => (
-                    <div key={i} className="mt-4 rounded-xl bg-muted/40 p-3">
-                      <div className="flex items-center justify-between">
+                    <div key={i} className="mt-3 rounded-xl bg-muted/40 p-3 sm:mt-4">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="text-[13px] font-semibold text-foreground">
                           {m.specialty} {m.condition && <span className="text-muted-foreground">· {m.condition}</span>}
                         </div>
-                        <span className="rounded-full bg-emerald-soft px-2 py-0.5 text-[10px] font-semibold text-emerald">
+                        <span className="shrink-0 rounded-full bg-emerald-soft px-2 py-0.5 text-[10px] font-semibold text-emerald">
                           {Math.round(m.confidence * 100)}% match
                         </span>
                       </div>
@@ -329,7 +325,7 @@ export function SearchView({
                   ))}
 
                   {aiResult.disclaimer && (
-                    <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+                    <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[10.5px] leading-relaxed text-amber-800 sm:text-[11px]">
                       {aiResult.disclaimer}
                     </div>
                   )}
@@ -340,16 +336,16 @@ export function SearchView({
         </AnimatePresence>
 
         {/* Result header */}
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3 sm:mb-4">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+            <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
               {initialQuery ? (
                 <>Results for <span className="text-brand">&ldquo;{initialQuery}&rdquo;</span></>
               ) : (
                 <>All verified doctors</>
               )}
             </h1>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">
+            <p className="mt-0.5 text-[12px] text-muted-foreground sm:text-[13px]">
               {loading ? 'Searching…' : `${visibleDoctors.length} doctors found`}
               {city && ` in ${cities.find(c => c.slug === city)?.name || city}`}
             </p>
@@ -358,15 +354,15 @@ export function SearchView({
 
         {/* Related entities */}
         {!loading && results && (results.conditions.length > 0 || results.specialties.length > 0 || results.hospitals.length > 0) && (
-          <div className="mb-6 space-y-3">
+          <div className="mb-5 space-y-2 sm:mb-6 sm:space-y-3">
             {results.conditions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Conditions:</span>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Conditions:</span>
                 {results.conditions.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => onNavigate('condition', { slug: c.slug })}
-                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand"
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand sm:text-[12px]"
                   >
                     {c.name}
                   </button>
@@ -374,13 +370,13 @@ export function SearchView({
               </div>
             )}
             {results.specialties.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Specialties:</span>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Specialties:</span>
                 {results.specialties.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => onNavigate('specialty', { slug: s.slug })}
-                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand"
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand sm:text-[12px]"
                   >
                     {s.name}
                   </button>
@@ -388,13 +384,13 @@ export function SearchView({
               </div>
             )}
             {results.hospitals.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Hospitals:</span>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Hospitals:</span>
                 {results.hospitals.map((h) => (
                   <button
                     key={h.id}
                     onClick={() => onNavigate('hospital', { slug: h.slug })}
-                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand"
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand sm:text-[12px]"
                   >
                     {h.name}
                   </button>
@@ -404,15 +400,31 @@ export function SearchView({
           </div>
         )}
 
-        {/* Split layout */}
-        <div className={`grid gap-6 ${showMap ? 'lg:grid-cols-[1fr_440px]' : 'grid-cols-1'}`}>
-          <div className="space-y-4">
+        {/* Split layout — mobile stacks, desktop side-by-side when map is on */}
+        <div className={`grid gap-4 lg:gap-6 ${showMap ? 'lg:grid-cols-[1fr_440px]' : 'grid-cols-1'}`}>
+          <div className="space-y-3 sm:space-y-4">
+            {/* Mobile map preview when toggled on */}
+            {showMap && (
+              <div className="h-64 overflow-hidden rounded-2xl border border-border lg:hidden">
+                <StylizedMap
+                  points={mapPoints}
+                  center={mapCenter}
+                  selectedId={selectedDoctorId}
+                  onPointClick={(id) => {
+                    setSelectedDoctorId(id);
+                    document.getElementById(`doctor-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                  className="!rounded-2xl"
+                />
+              </div>
+            )}
+
             {loading ? (
               <>
                 {Array.from({ length: 5 }).map((_, i) => <DoctorCardSkeleton key={i} />)}
               </>
             ) : visibleDoctors.length === 0 ? (
-              <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-card">
+              <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-card sm:p-12">
                 <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
                   <SlidersHorizontal className="h-5 w-5" />
                 </div>
@@ -421,17 +433,18 @@ export function SearchView({
               </div>
             ) : (
               visibleDoctors.map((d, i) => (
-                <DoctorCard
-                  key={d.id}
-                  doctor={d}
-                  onOpen={(slug) => onNavigate('doctor', { slug })}
-                  index={i}
-                />
+                <div key={d.id} id={`doctor-${d.id}`}>
+                  <DoctorCard
+                    doctor={d}
+                    onOpen={(slug) => onNavigate('doctor', { slug })}
+                    index={i}
+                  />
+                </div>
               ))
             )}
           </div>
 
-          {/* Map */}
+          {/* Desktop sticky map */}
           {showMap && (
             <div className="hidden lg:sticky lg:top-32 lg:block lg:h-[calc(100vh-160px)]">
               <StylizedMap
