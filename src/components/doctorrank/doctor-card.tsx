@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { rankBand, formatINR } from '@/lib/doctorrank';
 import { RankGauge } from './ecg-line';
+import { DoctorImage } from './doctor-image';
 
 interface DoctorCardProps {
   doctor: any;
@@ -38,13 +39,14 @@ export function DoctorCard({ doctor, onOpen, compact = false, index = 0 }: Docto
         {/* Photo */}
         <div className="relative shrink-0">
           <div className="absolute inset-0 rounded-xl bg-brand/15 blur-md transition-all group-hover:bg-brand/25" />
-          <img
+          <DoctorImage
             src={doctor.photoUrl}
             alt={`${doctor.name} — ${doctor.specialty?.name} specialist`}
             loading="lazy"
             className="relative h-14 w-14 rounded-xl object-cover ring-2 ring-white sm:h-20 sm:w-20"
             width={80}
             height={80}
+            fallbackInitial={doctor.name?.[0]}
           />
           {doctor.isVerified && (
             <div className="absolute -bottom-1.5 -right-1.5 grid h-6 w-6 place-items-center rounded-full bg-card shadow-card sm:h-7 sm:w-7">

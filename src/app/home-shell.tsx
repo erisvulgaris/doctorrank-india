@@ -100,7 +100,14 @@ function HomeShellInner(props: HomeShellProps) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      // Don't trigger when modifier keys are pressed (Cmd/Ctrl/Alt/Meta),
+      // or when the user is typing in an input/textarea/select/contenteditable.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (document.activeElement?.tagName || '').toUpperCase();
+      const isEditable =
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
+        (document.activeElement as HTMLElement | null)?.isContentEditable === true;
+      if (e.key === '/' && !isEditable) {
         e.preventDefault();
         navigate('search');
       }
@@ -126,9 +133,14 @@ function HomeShellInner(props: HomeShellProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Skip-to-content link for keyboard / screen-reader users */}
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
+
       <SiteHeader onNavigate={navigate} currentView={state.view} />
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1" tabIndex={-1}>
         <AnimatePresence mode="wait">
           <motion.div
             key={state.view + (state.view === 'search' ? state.q : '') + (['doctor','condition','specialty','hospital'].includes(state.view) ? (state as any).slug : '')}

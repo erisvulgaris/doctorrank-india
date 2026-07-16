@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star, MapPin, Shield, BadgeCheck, Clock, Languages, Wallet,
   Phone, MessageCircle, Calendar, ArrowLeft, TrendingUp, CheckCircle2,
   Award, Activity, FlaskConical, Pill, Stethoscope, Hospital, ChevronRight,
   Quote, ThumbsUp, Eye, Share2, Sparkles, Lock, Zap, Globe,
+  X, AlertCircle, Loader2,
 } from 'lucide-react';
 import { DoctorCard } from './doctor-card';
 import { StylizedMap } from './stylized-map';
+import { DoctorImage } from './doctor-image';
 import { rankBand, formatINR, relativeTime } from '@/lib/doctorrank';
 
 interface DoctorViewProps {
@@ -81,7 +83,15 @@ export function DoctorView({ slug, onNavigate, onBack }: DoctorViewProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, doctorId: d.id }),
     });
-    const json = await res.json();
+    let json: any;
+    try {
+      json = await res.json();
+    } catch {
+      json = { error: 'Invalid response from server.' };
+    }
+    if (!res.ok || json?.error) {
+      throw new Error(json?.error || `Request failed with status ${res.status}`);
+    }
     setBookingSubmitted(json);
   };
 
@@ -136,12 +146,14 @@ export function DoctorView({ slug, onNavigate, onBack }: DoctorViewProps) {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
               <div className="relative shrink-0">
                 <div className="absolute inset-0 rounded-2xl bg-brand/20 blur-lg" />
-                <img
+                <DoctorImage
                   src={d.photoUrl}
                   alt={`${d.name} — ${d.specialty.name}`}
                   className="relative h-24 w-24 rounded-2xl border-4 border-card object-cover shadow-premium sm:h-32 sm:w-32"
                   width={128}
                   height={128}
+                  loading="eager"
+                  fallbackInitial={d.name?.[0]}
                 />
                 <div className="absolute -bottom-2 -right-2 grid h-8 w-8 place-items-center rounded-full bg-card shadow-card">
                   <BadgeCheck className="h-6 w-6 text-brand" />
@@ -529,20 +541,172 @@ export function DoctorView({ slug, onNavigate, onBack }: DoctorViewProps) {
   );
 }
 
+// ============================================================
+// BookingModal — accessible modal with form validation, error
+// states, focus trap, Escape-to-close, and reset-on-close.
+// ============================================================
+
+interface BookingForm {
+  patientName: string;
+  patientPhone: string;
+  patientEmail: string;
+  preferredDate: string;
+  notes: string;
+}
+
+const EMPTY_FORM: BookingForm = {
+  patientName: '',
+  patientPhone: '',
+  patientEmail: '',
+  preferredDate: '',
+  notes: '',
+};
+
+// Indian mobile numbers: +91 followed by 10 digits, or 10 digits starting with 6-9.
+const PHONE_REGEX = /^(\+?91[\s-]?)?[6-9]\d{9}$/;
+// Basic email regex — server-side validation is authoritative.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateForm(form: BookingForm): Partial<Record<keyof BookingForm, string>> {
+  const errors: Partial<Record<keyof BookingForm, string>> = {};
+  if (!form.patientName.trim()) {
+    errors.patientName = 'Please enter the patient name.';
+  } else if (form.patientName.trim().length < 2) {
+    errors.patientName = 'Name must be at least 2 characters.';
+  }
+  if (!form.patientPhone.trim()) {
+    errors.patientPhone = 'Phone number is required.';
+  } else if (!PHONE_REGEX.test(form.patientPhone.replace(/\s+/g, ''))) {
+    errors.patientPhone = 'Enter a valid Indian mobile number (e.g. +91 98765 43210).';
+  }
+  if (form.patientEmail.trim() && !EMAIL_REGEX.test(form.patientEmail.trim())) {
+    errors.patientEmail = 'Enter a valid email or leave blank.';
+  }
+  if (!form.preferredDate) {
+    errors.preferredDate = 'Please choose a date and time.';
+  } else {
+    const chosen = new Date(form.preferredDate);
+    const now = new Date();
+    if (chosen.getTime() < now.getTime() - 60_000) {
+      errors.preferredDate = 'Please choose a future date and time.';
+    }
+  }
+  return errors;
+}
+
 function BookingModal({ doctor, onClose, onSubmit, submitted }: {
   doctor: any;
   onClose: () => void;
   onSubmit: (form: any) => Promise<void>;
   submitted: any;
 }) {
-  const [form, setForm] = useState({ patientName: '', patientPhone: '', patientEmail: '', preferredDate: '', notes: '' });
+  const [form, setForm] = useState<BookingForm>(EMPTY_FORM);
+  const [errors, setErrors] = useState<Partial<Record<keyof BookingForm, string>>>({});
+  const [touched, setTouched] = useState<Partial<Record<keyof BookingForm, boolean>>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  const isComplete = !!submitted && !('error' in (submitted || {}));
+
+  // Reset form whenever the modal is opened fresh (no submitted result yet)
+  useEffect(() => {
+    if (!submitted) {
+      setForm(EMPTY_FORM);
+      setErrors({});
+      setTouched({});
+      setSubmitError(null);
+    }
+  }, [submitted]);
+
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, submitting]);
+
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  // Move focus to first field on mount, and trap focus inside the modal
+  useEffect(() => {
+    const t = setTimeout(() => firstFieldRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const onTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onTab);
+    return () => window.removeEventListener('keydown', onTab);
+  }, []);
+
+  const update = (field: keyof BookingForm, value: string) => {
+    setForm((f) => ({ ...f, [field]: value }));
+    if (touched[field] || errors[field]) {
+      const nextErrors = validateForm({ ...form, [field]: value });
+      setErrors((e) => ({ ...e, [field]: nextErrors[field] }));
+    }
+  };
+
+  const markTouched = (field: keyof BookingForm) => {
+    setTouched((t) => ({ ...t, [field]: true }));
+    const nextErrors = validateForm(form);
+    setErrors((e) => ({ ...e, [field]: nextErrors[field] }));
+  };
 
   const handle = async () => {
+    const validation = validateForm(form);
+    setErrors(validation);
+    setTouched({ patientName: true, patientPhone: true, patientEmail: true, preferredDate: true, notes: true });
+    if (Object.keys(validation).length > 0) return;
+
     setSubmitting(true);
-    await onSubmit(form);
-    setSubmitting(false);
+    setSubmitError(null);
+    try {
+      await onSubmit(form);
+    } catch (e: any) {
+      setSubmitError(e?.message || 'Failed to book appointment. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // Today's datetime in local tz, truncated to minutes — used as min for date input
+  const nowLocal = new Date();
+  nowLocal.setSeconds(0, 0);
+  const minDateTime = new Date(nowLocal.getTime() - nowLocal.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
 
   return (
     <motion.div
@@ -550,9 +714,13 @@ function BookingModal({ doctor, onClose, onSubmit, submitted }: {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4 backdrop-blur"
-      onClick={onClose}
+      onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="booking-modal-title"
     >
       <motion.div
+        ref={dialogRef}
         initial={{ opacity: 0, scale: 0.96, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -560,12 +728,13 @@ function BookingModal({ doctor, onClose, onSubmit, submitted }: {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-premium"
       >
-        {submitted ? (
-          <div className="p-6 text-center">
+        {/* Success state */}
+        {isComplete ? (
+          <div className="p-6 text-center" role="status" aria-live="polite">
             <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-emerald-soft text-emerald">
               <CheckCircle2 className="h-6 w-6" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground">Appointment confirmed</h3>
+            <h3 id="booking-modal-title" className="text-lg font-semibold text-foreground">Appointment confirmed</h3>
             <p className="mt-1 text-[13px] text-muted-foreground">{submitted.confirmation?.message}</p>
             <div className="mt-4 rounded-xl bg-muted/40 p-3 text-left text-[12px]">
               <div className="flex justify-between"><span className="text-muted-foreground">Appointment ID</span><span className="font-mono font-semibold">{submitted.appointmentId?.slice(-8).toUpperCase()}</span></div>
@@ -585,82 +754,199 @@ function BookingModal({ doctor, onClose, onSubmit, submitted }: {
             </button>
           </div>
         ) : (
+          /* Form state */
           <div className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-foreground">Book appointment</h3>
+                <h3 id="booking-modal-title" className="text-lg font-semibold text-foreground">Book appointment</h3>
                 <p className="text-[13px] text-muted-foreground">with {doctor.name}</p>
               </div>
-              <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-                <ArrowLeft className="h-4 w-4 rotate-45" />
+              <button
+                onClick={onClose}
+                disabled={submitting}
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+                aria-label="Close booking dialog"
+              >
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Full name *</label>
+            {/* Submit error banner */}
+            <AnimatePresence>
+              {submitError && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div role="alert" className="flex items-start gap-2 rounded-lg bg-danger-soft px-3 py-2 text-[12px] leading-relaxed text-danger">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{submitError}</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="space-y-3">
+              {/* Name */}
+              <FormField
+                label="Full name"
+                required
+                error={touched.patientName ? errors.patientName : undefined}
+              >
                 <input
+                  ref={firstFieldRef}
+                  type="text"
                   value={form.patientName}
-                  onChange={(e) => setForm({ ...form, patientName: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-[14px] outline-none focus:border-brand"
+                  onChange={(e) => update('patientName', e.target.value)}
+                  onBlur={() => markTouched('patientName')}
+                  aria-invalid={touched.patientName && !!errors.patientName ? true : undefined}
+                  aria-describedby={errors.patientName ? 'err-patientName' : undefined}
+                  className={`mt-1 w-full rounded-xl border bg-background px-3 py-2 text-[14px] outline-none transition-colors focus:border-brand ${
+                    touched.patientName && errors.patientName ? 'border-danger' : 'border-border'
+                  }`}
                   placeholder="Patient name"
+                  autoComplete="name"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Phone *</label>
+              </FormField>
+
+              {/* Phone + Email */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  label="Phone"
+                  required
+                  error={touched.patientPhone ? errors.patientPhone : undefined}
+                >
                   <input
+                    type="tel"
                     value={form.patientPhone}
-                    onChange={(e) => setForm({ ...form, patientPhone: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-[14px] outline-none focus:border-brand"
-                    placeholder="+91…"
+                    onChange={(e) => update('patientPhone', e.target.value)}
+                    onBlur={() => markTouched('patientPhone')}
+                    aria-invalid={touched.patientPhone && !!errors.patientPhone ? true : undefined}
+                    aria-describedby={errors.patientPhone ? 'err-patientPhone' : undefined}
+                    className={`mt-1 w-full rounded-xl border bg-background px-3 py-2 text-[14px] outline-none transition-colors focus:border-brand ${
+                      touched.patientPhone && errors.patientPhone ? 'border-danger' : 'border-border'
+                    }`}
+                    placeholder="+91 98765 43210"
+                    autoComplete="tel"
+                    inputMode="tel"
                   />
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Email</label>
+                </FormField>
+                <FormField
+                  label="Email"
+                  error={touched.patientEmail ? errors.patientEmail : undefined}
+                >
                   <input
+                    type="email"
                     value={form.patientEmail}
-                    onChange={(e) => setForm({ ...form, patientEmail: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-[14px] outline-none focus:border-brand"
+                    onChange={(e) => update('patientEmail', e.target.value)}
+                    onBlur={() => markTouched('patientEmail')}
+                    aria-invalid={touched.patientEmail && !!errors.patientEmail ? true : undefined}
+                    aria-describedby={errors.patientEmail ? 'err-patientEmail' : undefined}
+                    className={`mt-1 w-full rounded-xl border bg-background px-3 py-2 text-[14px] outline-none transition-colors focus:border-brand ${
+                      touched.patientEmail && errors.patientEmail ? 'border-danger' : 'border-border'
+                    }`}
                     placeholder="optional"
+                    autoComplete="email"
+                    inputMode="email"
                   />
-                </div>
+                </FormField>
               </div>
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Preferred date & time *</label>
+
+              {/* Date */}
+              <FormField
+                label="Preferred date & time"
+                required
+                error={touched.preferredDate ? errors.preferredDate : undefined}
+              >
                 <input
                   type="datetime-local"
                   value={form.preferredDate}
-                  onChange={(e) => setForm({ ...form, preferredDate: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-[14px] outline-none focus:border-brand"
+                  min={minDateTime}
+                  onChange={(e) => update('preferredDate', e.target.value)}
+                  onBlur={() => markTouched('preferredDate')}
+                  aria-invalid={touched.preferredDate && !!errors.preferredDate ? true : undefined}
+                  aria-describedby={errors.preferredDate ? 'err-preferredDate' : undefined}
+                  className={`mt-1 w-full rounded-xl border bg-background px-3 py-2 text-[14px] outline-none transition-colors focus:border-brand ${
+                    touched.preferredDate && errors.preferredDate ? 'border-danger' : 'border-border'
+                  }`}
                 />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</label>
+              </FormField>
+
+              {/* Notes */}
+              <FormField label="Notes">
                 <textarea
                   value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  onChange={(e) => update('notes', e.target.value)}
                   rows={2}
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-[14px] outline-none focus:border-brand"
+                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-[14px] outline-none transition-colors focus:border-brand"
                   placeholder="Briefly describe your concern"
                 />
-              </div>
+              </FormField>
             </div>
 
             <button
               onClick={handle}
-              disabled={!form.patientName || !form.patientPhone || !form.preferredDate || submitting}
-              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-[14px] font-semibold text-white shadow-card hover:bg-brand/90 disabled:opacity-50"
+              disabled={submitting}
+              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-[14px] font-semibold text-white shadow-card transition-all hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? 'Confirming…' : 'Confirm appointment'}
-              <Sparkles className="h-4 w-4" />
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Confirming…
+                </>
+              ) : (
+                <>
+                  Confirm appointment
+                  <Sparkles className="h-4 w-4" />
+                </>
+              )}
             </button>
             <p className="mt-2 text-center text-[11px] text-muted-foreground">
-              Confirmation via WhatsApp · SMS · Email
+              Confirmation via WhatsApp · SMS · Email · Press <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">Esc</kbd> to close
             </p>
           </div>
         )}
       </motion.div>
     </motion.div>
+  );
+}
+
+// Reusable form field wrapper with label, required marker, and error message.
+function FormField({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  const errId = `err-${label.replace(/\s+/g, '')}`;
+  return (
+    <div>
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+        {required && <span className="ml-0.5 text-danger" aria-hidden="true">*</span>}
+      </label>
+      {children}
+      <AnimatePresence>
+        {error && (
+          <motion.p
+            id={errId}
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 4 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            className="overflow-hidden text-[11.5px] font-medium leading-relaxed text-danger"
+            role="alert"
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

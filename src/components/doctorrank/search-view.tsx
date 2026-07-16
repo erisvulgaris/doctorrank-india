@@ -345,8 +345,13 @@ export function SearchView({
                 <>All verified doctors</>
               )}
             </h1>
-            <p className="mt-0.5 text-[12px] text-muted-foreground sm:text-[13px]">
-              {loading ? 'Searching…' : `${visibleDoctors.length} doctors found`}
+            <p
+              className="mt-0.5 text-[12px] text-muted-foreground sm:text-[13px]"
+              role="status"
+              aria-live="polite"
+              aria-busy={loading}
+            >
+              {loading ? 'Searching…' : `${visibleDoctors.length} ${visibleDoctors.length === 1 ? 'doctor' : 'doctors'} found`}
               {city && ` in ${cities.find(c => c.slug === city)?.name || city}`}
             </p>
           </div>

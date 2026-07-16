@@ -57,3 +57,4 @@ db/*.db
 
 # Downloads
 download/
+tool-results/

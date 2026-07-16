@@ -9,6 +9,7 @@ import { DataTable, Column } from './ui/data-table';
 import { SectionHeader } from './ui/chart-card';
 import { formatINR, rankBand } from '@/lib/doctorrank';
 import { RankGauge } from '@/components/doctorrank/ecg-line';
+import { DoctorImage } from '@/components/doctorrank/doctor-image';
 import { motion } from 'framer-motion';
 
 interface AdminDoctorsProps {
@@ -42,7 +43,15 @@ export function AdminDoctors({ doctors }: AdminDoctorsProps) {
       sortable: true,
       render: (d) => (
         <div className="flex items-center gap-2.5">
-          <img src={d.photoUrl} alt={d.name} className="h-9 w-9 rounded-lg object-cover" />
+          <DoctorImage
+            src={d.photoUrl}
+            alt={d.name}
+            width={36}
+            height={36}
+            loading="lazy"
+            className="h-9 w-9 shrink-0 rounded-lg object-cover"
+            fallbackInitial={d.name?.[0]}
+          />
           <div className="min-w-0">
             <div className="flex items-center gap-1 truncate text-[13px] font-semibold text-foreground">
               {d.name}

@@ -67,26 +67,30 @@ export function SiteHeader({ onNavigate, currentView }: SiteHeaderProps) {
             </button>
 
             {/* Desktop nav */}
-            <nav className="hidden items-center gap-0.5 lg:flex">
-              {NAV_ITEMS.map((item) => (
-                <button
-                  key={item.view}
-                  onClick={() => onNavigate(item.view)}
-                  className={`relative rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
-                    currentView === item.view
-                      ? 'text-brand'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {item.label}
-                  {currentView === item.view && (
-                    <motion.span
-                      layoutId="nav-active"
-                      className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-brand"
-                    />
-                  )}
-                </button>
-              ))}
+            <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary">
+              {NAV_ITEMS.map((item) => {
+                const active = currentView === item.view;
+                return (
+                  <button
+                    key={item.view}
+                    onClick={() => onNavigate(item.view)}
+                    aria-current={active ? 'page' : undefined}
+                    className={`relative rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
+                      active
+                        ? 'text-brand'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {item.label}
+                    {active && (
+                      <motion.span
+                        layoutId="nav-active"
+                        className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-brand"
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </nav>
 
             {/* Right actions */}
@@ -154,29 +158,33 @@ export function SiteHeader({ onNavigate, currentView }: SiteHeaderProps) {
                 </button>
               </div>
               <div className="p-3">
-                {NAV_ITEMS.map((item, i) => (
-                  <motion.button
-                    key={item.view}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.04 * i + 0.05 }}
-                    onClick={() => {
-                      onNavigate(item.view);
-                      setMobileOpen(false);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-[15px] font-medium transition-colors ${
-                      currentView === item.view
-                        ? 'bg-brand-soft text-brand'
-                        : 'text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </motion.button>
-                ))}
+                {NAV_ITEMS.map((item, i) => {
+                  const active = currentView === item.view;
+                  return (
+                    <motion.button
+                      key={item.view}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.04 * i + 0.05 }}
+                      onClick={() => {
+                        onNavigate(item.view);
+                        setMobileOpen(false);
+                      }}
+                      aria-current={active ? 'page' : undefined}
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-[15px] font-medium transition-colors ${
+                        active
+                          ? 'bg-brand-soft text-brand'
+                          : 'text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </motion.button>
+                  );
+                })}
               </div>
               <div className="mt-auto border-t border-border p-4">
                 <button
@@ -196,7 +204,7 @@ export function SiteHeader({ onNavigate, currentView }: SiteHeaderProps) {
       </AnimatePresence>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden safe-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden safe-bottom" aria-label="Mobile">
         <div className="mx-auto flex max-w-md items-center justify-around px-2 py-1.5">
           {BOTTOM_NAV.map((item) => {
             const active = currentView === item.view;
@@ -204,10 +212,11 @@ export function SiteHeader({ onNavigate, currentView }: SiteHeaderProps) {
               <button
                 key={item.view}
                 onClick={() => onNavigate(item.view)}
+                aria-current={active ? 'page' : undefined}
+                aria-label={item.label}
                 className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[10px] font-medium transition-colors ${
                   active ? 'text-brand' : 'text-muted-foreground'
                 }`}
-                aria-label={item.label}
               >
                 <div className={`grid h-7 w-7 place-items-center rounded-lg transition-all ${active ? 'bg-brand-soft' : ''}`}>
                   <item.icon className="h-4 w-4" />

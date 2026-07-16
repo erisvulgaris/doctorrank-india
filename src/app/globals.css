@@ -223,6 +223,40 @@
   /* Safe area for mobile (notch) */
   .safe-top { padding-top: env(safe-area-inset-top); }
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* Skip-to-content link — visible only when focused (keyboard a11y) */
+  .skip-link {
+    position: absolute;
+    left: 1rem;
+    top: -100px;
+    z-index: 200;
+    border-radius: 0.5rem;
+    background: #0B5FFF;
+    color: #FFFFFF;
+    padding: 0.5rem 1rem;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 8px 24px -8px rgba(11, 95, 255, 0.4);
+    transition: top 0.2s ease;
+  }
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    top: 1rem;
+    outline: 2px solid #FFFFFF;
+    outline-offset: 2px;
+  }
+
+  /* Stronger, consistent focus-visible rings for keyboard users */
+  /* (does not affect mouse users) */
+  *:focus-visible {
+    outline: 2px solid #0B5FFF;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  /* Remove default outline only when focus-visible is supported */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 /* ============ Custom scrollbar ============ */
@@ -333,4 +367,30 @@
 }
 .animate-float-cross {
   animation: float-cross 6s ease-in-out infinite;
+}
+
+/* ============ Reduced motion ============ */
+/* Respect users who prefer reduced motion — disable non-essential animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Keep shimmer functional (it conveys loading state) but speed it up */
+  .shimmer {
+    animation-duration: 1.2s !important;
+  }
+  /* Disable decorative animations entirely */
+  .ecg-scroll,
+  .animate-heartbeat,
+  .animate-float-cross,
+  .animate-soft-glow,
+  .animate-marquee-fade,
+  .pulse-ring::before {
+    animation: none !important;
+  }
 }
