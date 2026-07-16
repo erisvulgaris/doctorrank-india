@@ -1,9 +1,13 @@
 // DoctorRank India — Seed Script
 // Run: bun run /home/z/my-project/scripts/seed.ts
 import { db } from '../src/lib/db';
+import { hashPassword } from '../src/lib/auth';
 
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+// Default password for all seeded doctors. Documented for dev only.
+const DEFAULT_PASSWORD = 'doctor123';
 
 // ---------- Cities ----------
 const cities = [
@@ -156,6 +160,7 @@ const conditionsBySpecialty: Record<string, Array<{q:string,a:string}>> = {
 async function main() {
   console.log('🌱 Seeding DoctorRank India...');
 
+  await db.session.deleteMany();
   await db.appointment.deleteMany();
   await db.review.deleteMany();
   await db.doctor.deleteMany();
@@ -282,6 +287,11 @@ async function main() {
     const photoGender = isFemale ? 'women' : 'men';
     const photoId = Math.floor(1 + Math.random() * 90);
 
+    // Generate a deterministic email per doctor (dev only).
+    // Default password is documented in the seed file and CHANGELOG.
+    const email = `${slug}@doctorrank.in`;
+    const passwordHash = await hashPassword(DEFAULT_PASSWORD);
+
     const doctor = await db.doctor.create({
       data: {
         name,
@@ -289,6 +299,8 @@ async function main() {
         specialtyId: spec.id,
         hospitalId: hospInCity?.id ?? null,
         cityId: city.id,
+        email,
+        passwordHash,
         qualifications: qual,
         registrationNumber: regNo,
         experienceYears: exp,
@@ -353,6 +365,7 @@ async function main() {
   }
 
   console.log(`✅ Seeded ${cities.length} cities, ${specialties.length} specialties, ${conditions.length} conditions, ${hospitals.length} hospitals, ${doctorCount} doctors`);
+  console.log(`📋 All doctors use email '<slug>@doctorrank.in' and password '${DEFAULT_PASSWORD}' (dev only — change in production)`);
 }
 
 main()

@@ -449,6 +449,31 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 10. **Running `bun run build` in the sandbox.** It produces a standalone
     build that conflicts with the auto-running dev server. Don't.
 
+11. **Enabling Prisma query logging.** `src/lib/db.ts` previously had
+    `log: ['query']`, which generated 22MB+ of log output and crashed
+    the dev server by filling the disk. **Never re-enable query logging.**
+    Use `log: ['warn', 'error']` (the current setting) or add explicit
+    `console.log` calls in specific routes when debugging.
+
+12. **Prisma schema changes without cache clear.** After `prisma db push`
+    + `prisma generate`, the Next.js Turbopack dev server still caches
+    the old Prisma Client. You must `rm -rf .next` and restart the dev
+    server, or queries using new fields will fail with
+    `Unknown argument`. See discovery log §11 (iteration 2).
+
+13. **Exposing `passwordHash` or `sessions` in API responses.** Always
+    pass doctor objects through `publicDoctor()` (from `src/lib/auth.ts`)
+    before returning them from an API route. This strips `passwordHash`
+    and `sessions`. The signup and login routes already do this —
+    preserve the pattern in any new auth-related route.
+
+14. **Forgetting ownership checks on doctor mutations.** Any
+    `PATCH`/`DELETE` route under `/api/doctor/*` must verify that the
+    resource being modified belongs to the logged-in doctor (e.g.
+    `if (existing.doctorId !== doctor.id) return 404`). Without this,
+    a logged-in doctor could modify another doctor's appointments or
+    reviews by guessing IDs.
+
 ---
 
 ## 9. Data flow & integration details
@@ -496,6 +521,42 @@ SVG visualization, **not** Google Maps. It uses a simple linear
 projection (lat/lng → x/y) and draws stylized roads, rivers, and pins.
 For production, replace with the Google Maps API (the `GOOGLE_MAPS_API_KEY`
 env var is documented in `.env.example`).
+
+### 9.6 Authentication (added in iteration 2)
+
+The app uses **server-side sessions stored in the DB** — no JWTs, no
+client-side session storage. The flow:
+
+1. `POST /api/auth/login` (or `/signup`) verifies credentials, creates a
+   `Session` row with a 32-byte random token, and sets an `httpOnly`
+   `doctorrank_session` cookie via `next/headers` `cookies().set()`.
+2. On every request, `getCurrentDoctor()` (in `src/lib/auth.ts`) reads
+   the cookie, looks up the session in the DB, checks `expiresAt`, and
+   returns the doctor (or `null`).
+3. `POST /api/auth/logout` deletes the session row and clears the cookie.
+
+**Password hashing** uses Node's built-in `crypto.scrypt` with a per-user
+salt and `timingSafeEqual` for comparison. No bcrypt dependency.
+
+**Server-side auth check**: `src/app/page.tsx` calls `getCurrentDoctor()`
+in parallel with the bootstrap data and passes the result as
+`initialDoctor` to `<HomeShell>`. This means the page renders with the
+correct auth state on first paint — no client-side flicker.
+
+**Client-side auth state**: `HomeShell` keeps `doctor` in React state,
+initialised from `initialDoctor`. Login/signup updates this state via
+`handleAuthSuccess`; logout clears it via `handleLogout`. No
+`/api/auth/me` polling is needed on page load (but the endpoint exists
+for future client-side checks).
+
+**Protected API routes**: all `/api/doctor/*` routes call
+`getCurrentDoctor()` first and return 401 if null. They verify ownership
+before returning or mutating data (e.g. `PATCH /api/doctor/appointments?id=X`
+checks that the appointment's `doctorId` matches the session's doctor).
+
+**Dev credentials**: all seeded doctors use email `<slug>@doctorrank.in`
+and password `doctor123`. This is documented in the seed script, the
+login page (dev hint), and the changelog.
 
 ---
 
@@ -560,6 +621,45 @@ subset of these rather than tackling all at once.
 ## 11. Discovery log
 
 A running log of important discoveries and decisions, newest first.
+
+### 2026-07-17 — Iteration 2
+
+- **Discovered (critical):** Prisma's `log: ['query']` in `src/lib/db.ts`
+  was generating 22MB+ of log output in `dev.log`, which filled the disk
+  and caused the dev server to crash repeatedly. **Fixed** by reducing
+  to `log: ['warn', 'error']`. **Future agents: never enable query-level
+  Prisma logging in this project.**
+- **Discovered (critical):** After running `bunx prisma db push` to add
+  new fields to a model, the Next.js Turbopack dev server caches the old
+  Prisma Client and does not pick up the new schema. The fix is:
+  1. `bunx prisma generate` (regenerate the client)
+  2. `rm -rf .next` (clear the Turbopack cache)
+  3. Restart the dev server (`pkill -f "next dev"` then restart with
+     `setsid bunx next dev -p 3000 &`).
+  Without all three steps, queries using the new fields will fail with
+  `Unknown argument` errors.
+- **Decision:** Used `crypto.scrypt` (Node built-in) for password hashing
+  instead of adding `bcrypt` as a dependency. scrypt is actually *more*
+  secure than bcrypt (memory-hard, resistant to GPU/ASIC attacks) and
+  requires no native compilation. The `timingSafeEqual` comparison
+  prevents timing attacks.
+- **Decision:** Server-side sessions in the DB (not JWTs) because:
+  - JWTs can't be revoked without a server-side blocklist anyway.
+  - DB sessions give us "active sessions" list for free (shown in the
+    admin Security Center).
+  - The performance cost is one indexed `findUnique` per request —
+    negligible at this scale.
+- **Decision:** The `email` field on `Doctor` is nullable to preserve
+  existing seeded data during the migration. For a production deploy,
+  backfill emails and make it required.
+- **Decision:** Login returns a generic "Invalid email or password"
+  error for both unknown-email and wrong-password cases, to prevent
+  user enumeration. This is a NIST 800-63B recommendation.
+- **Decision:** The DoctorRank recalculation in `PATCH /api/doctor/profile`
+  uses the same 7-factor weights as the seed script. Only
+  `profileCompleteness` and `profileFreshness` are updated by the doctor's
+  own edits — the other 5 factors are driven by external signals and
+  require a background job to recompute (not yet implemented).
 
 ### 2026-07-16 — Iteration 1
 

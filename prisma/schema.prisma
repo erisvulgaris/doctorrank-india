@@ -97,6 +97,10 @@ model Doctor {
   cityId              String
   city                City     @relation(fields: [cityId], references: [id])
 
+  // Authentication (nullable so existing seeded doctors can be upgraded)
+  email               String?  @unique
+  passwordHash        String?
+
   // Professional
   qualifications      String
   registrationNumber  String
@@ -142,6 +146,22 @@ model Doctor {
   conditions          Condition[]
   reviews             Review[]
   appointments        Appointment[]
+  sessions            Session[]
+}
+
+// ============================================================
+// Authentication — server-side sessions stored in DB
+// ============================================================
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ip        String?
+  userAgent String?
 }
 
 model Review {
@@ -155,6 +175,9 @@ model Review {
   isVerified  Boolean  @default(false)
   helpfulVotes Int    @default(0)
   createdAt   DateTime @default(now())
+  // Doctor's public reply (optional, set from the dashboard)
+  doctorReply       String?
+  doctorReplyAt     DateTime?
 }
 
 model Appointment {
@@ -166,6 +189,10 @@ model Appointment {
   patientEmail  String?
   preferredDate DateTime
   notes         String?
+  // pending | confirmed | cancelled | completed | no-show
   status        String   @default("pending")
   createdAt     DateTime @default(now())
+  // Doctor-side metadata
+  doctorNotes   String?
+  updatedAt     DateTime @updatedAt
 }

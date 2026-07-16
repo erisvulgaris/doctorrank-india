@@ -6,11 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   HeartPulse, Search, Sparkles, Menu, X, Home, Stethoscope,
   Activity, Building2, TrendingUp, Shield, ChevronRight,
+  LogOut, LayoutDashboard, ChevronDown, User,
 } from 'lucide-react';
 
 interface SiteHeaderProps {
   onNavigate: (view: string, payload?: any) => void;
   currentView: string;
+  doctor?: any | null;
+  onLogout?: () => void;
 }
 
 const NAV_ITEMS = [
@@ -31,8 +34,9 @@ const BOTTOM_NAV = [
   { label: 'Ranking', view: 'ranking', icon: TrendingUp },
 ];
 
-export function SiteHeader({ onNavigate, currentView }: SiteHeaderProps) {
+export function SiteHeader({ onNavigate, currentView, doctor, onLogout }: SiteHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <>
@@ -105,14 +109,100 @@ export function SiteHeader({ onNavigate, currentView }: SiteHeaderProps) {
                   /
                 </kbd>
               </button>
-              <button
-                onClick={() => onNavigate('search')}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-[12px] font-semibold text-white shadow-card transition-all hover:bg-brand/90 hover:shadow-hover sm:px-3.5 sm:text-[13px]"
-              >
-                <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Book</span>
-                <span className="sm:hidden">Book</span>
-              </button>
+
+              {/* Auth area: show profile menu if logged in, otherwise Login + Book buttons */}
+              {doctor ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setProfileOpen((o) => !o)}
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-card p-1 pr-1.5 hover:border-brand/40"
+                    aria-label="Open profile menu"
+                  >
+                    <img
+                      src={doctor.photoUrl}
+                      alt=""
+                      className="h-7 w-7 rounded-md object-cover"
+                    />
+                    <div className="hidden text-left leading-none sm:block">
+                      <div className="text-[12px] font-semibold text-foreground">Dr. {doctor.name.replace(/^Dr\.\s*/, '').split(' ')[0]}</div>
+                      <div className="text-[10px] text-muted-foreground">Dashboard</div>
+                    </div>
+                    <ChevronDown className="hidden h-3 w-3 text-muted-foreground sm:block" />
+                  </button>
+                  <AnimatePresence>
+                    {profileOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-xl border border-border bg-popover shadow-premium"
+                        >
+                          <div className="border-b border-border p-3">
+                            <div className="text-[13px] font-semibold text-foreground">{doctor.name}</div>
+                            <div className="text-[11px] text-muted-foreground">{doctor.email}</div>
+                            <div className="mt-1.5 flex items-center gap-1">
+                              {doctor.isVerified ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-soft px-2 py-0.5 text-[9px] font-semibold text-emerald">
+                                  <Shield className="h-2.5 w-2.5" /> Verified
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-700">
+                                  Pending verification
+                                </span>
+                              )}
+                              <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[9px] font-semibold text-brand">
+                                Rank {Math.round(doctor.doctorRank)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-1">
+                            <button
+                              onClick={() => { onNavigate('dashboard'); setProfileOpen(false); }}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium text-foreground hover:bg-muted"
+                            >
+                              <LayoutDashboard className="h-3.5 w-3.5 text-muted-foreground" /> Dashboard
+                            </button>
+                            <button
+                              onClick={() => { onNavigate('doctor', { slug: doctor.slug }); setProfileOpen(false); }}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium text-foreground hover:bg-muted"
+                            >
+                              <User className="h-3.5 w-3.5 text-muted-foreground" /> View public profile
+                            </button>
+                          </div>
+                          <div className="border-t border-border p-1">
+                            <button
+                              onClick={() => { setProfileOpen(false); onLogout?.(); }}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium text-danger hover:bg-danger-soft"
+                            >
+                              <LogOut className="h-3.5 w-3.5" /> Sign out
+                            </button>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => onNavigate('login')}
+                    className="hidden items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-foreground transition-colors hover:border-brand/40 sm:inline-flex sm:text-[13px]"
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    onClick={() => onNavigate('search')}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-[12px] font-semibold text-white shadow-card transition-all hover:bg-brand/90 hover:shadow-hover sm:px-3.5 sm:text-[13px]"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Book</span>
+                    <span className="sm:hidden">Book</span>
+                  </button>
+                </>
+              )}
+
               <button
                 onClick={() => setMobileOpen(true)}
                 className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-card text-foreground lg:hidden"
@@ -187,16 +277,42 @@ export function SiteHeader({ onNavigate, currentView }: SiteHeaderProps) {
                 })}
               </div>
               <div className="mt-auto border-t border-border p-4">
-                <button
-                  onClick={() => {
-                    onNavigate('search');
-                    setMobileOpen(false);
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-[14px] font-semibold text-white shadow-card"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Book Appointment
-                </button>
+                {doctor ? (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => { onNavigate('dashboard'); setMobileOpen(false); }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-[14px] font-semibold text-white shadow-card"
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      My Dashboard
+                    </button>
+                    <button
+                      onClick={() => { setMobileOpen(false); onLogout?.(); }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-border py-2.5 text-[13px] font-medium text-danger hover:bg-danger-soft"
+                    >
+                      <LogOut className="h-4 w-4" /> Sign out
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => { onNavigate('login'); setMobileOpen(false); }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-border py-2.5 text-[13px] font-medium text-foreground hover:bg-muted"
+                    >
+                      Sign in
+                    </button>
+                    <button
+                      onClick={() => {
+                        onNavigate('search');
+                        setMobileOpen(false);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-[14px] font-semibold text-white shadow-card"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Book Appointment
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>

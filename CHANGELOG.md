@@ -8,6 +8,170 @@ for its public API surface (URLs, component props, database schema).
 
 ---
 
+## [Unreleased] — Iteration 2 (2026-07-17)
+
+**Theme:** Full authentication system + private doctor dashboard with real backend functionality.
+
+### User-facing improvements
+
+- **Doctor registration (`?view=signup`)** — a full signup form with name, email,
+  password, phone, specialty, city, qualifications, and medical registration number.
+  Inline validation, show/hide password toggle, and a dev hint showing the seeded
+  demo credentials. On success, the doctor is logged in and redirected to their dashboard.
+- **Doctor login (`?view=login`)** — email + password login with inline validation,
+  show/hide password toggle, and a clear "invalid email or password" error that
+  doesn't leak which field is wrong. On success, redirects to the dashboard.
+- **Doctor dashboard (`?view=dashboard`)** — a private 4-tab workspace for the
+  logged-in doctor:
+  - **Overview**: KPI tiles (today / this month / pending / avg rating), a 30-day
+    appointments area chart, appointment-status breakdown bars, 3 recent reviews,
+    and a profile-completeness progress bar.
+  - **Appointments**: filter chips (All / Pending / Confirmed / Completed / Cancelled),
+    a list of appointment cards with patient name, date, phone, email, notes, and
+    one-click status actions (Confirm, Complete, Cancel) plus a WhatsApp deep link
+    to the patient.
+  - **Reviews**: list of all reviews with star ratings, an inline reply composer
+    (1000-char limit), and the ability to remove an existing reply.
+  - **Profile**: editable form for photo URL, consultation fee, about, qualifications,
+    experience, phone, WhatsApp, address, languages, conditions treated, procedures,
+    and accepted insurance. A sticky "Save changes" bar persists edits and
+    recalculates the DoctorRank live.
+- **Header profile menu** — when logged in, the header shows the doctor's photo,
+  name, and a dropdown with Dashboard, View public profile, and Sign out. When
+  logged out, it shows "Sign in" + "Book" buttons.
+- **Mobile drawer auth** — the mobile hamburger drawer now shows "My Dashboard"
+  and "Sign out" when logged in, or "Sign in" + "Book Appointment" when logged out.
+- **Session persistence** — the server passes the logged-in doctor to the client
+  on page load, so refreshing the page keeps you signed in. Sessions last 30 days.
+
+### Functional / technical changes
+
+- **Prisma schema** (`prisma/schema.prisma`):
+  - Added `email` (nullable, unique) and `passwordHash` (nullable) to `Doctor`.
+  - Added new `Session` model (`id`, `token`, `doctorId`, `expiresAt`, `ip`,
+    `userAgent`) with cascade delete.
+  - Added `doctorReply` and `doctorReplyAt` to `Review` for doctor responses.
+  - Added `doctorNotes` and `updatedAt` to `Appointment`.
+- **Auth library** (`src/lib/auth.ts`) — new file:
+  - `hashPassword` / `verifyPassword` using Node's built-in `crypto.scrypt` with
+    per-user salt and `timingSafeEqual` (no bcrypt dependency).
+  - `createSession` / `getCurrentDoctor` / `setSessionCookie` / `clearSessionCookie`
+    / `destroySession` for httpOnly cookie-based sessions stored in the DB.
+  - `isValidEmail` / `isStrongPassword` (NIST 800-63B-compliant: ≥8 chars, letter
+    + number, no composition rules).
+  - `publicDoctor` strips `passwordHash` and `sessions` before returning a doctor.
+- **Seed script** (`scripts/seed.ts`):
+  - Every seeded doctor now has `email = '<slug>@doctorrank.in'` and
+    `passwordHash = hashPassword('doctor123')`.
+  - Wipes `Session` table on re-seed.
+  - Prints the default credentials at the end.
+- **API routes** (all new):
+  - `POST /api/auth/signup` — creates a doctor + session, sets cookie, returns
+    the public doctor object. Validates all fields, checks email uniqueness,
+    generates a slug (with collision suffix), creates the doctor with sensible
+    defaults, and starts them at DoctorRank 40 (pending verification).
+  - `POST /api/auth/login` — verifies credentials, creates a session, sets cookie.
+    Uses a generic "Invalid email or password" error to prevent user enumeration.
+  - `POST /api/auth/logout` — destroys the session row, clears the cookie.
+  - `GET /api/auth/me` — returns the current doctor or `{ doctor: null }`.
+  - `GET /api/doctor/dashboard` — aggregated stats: appointments today / this
+    month / by status, average rating, 30-day timeseries, 5 recent reviews,
+    active sessions. **401 if not logged in.**
+  - `GET /api/doctor/appointments` — list with optional `?status=` filter.
+  - `PATCH /api/doctor/appointments?id=<apptId>` — update status or doctor notes.
+    Verifies ownership.
+  - `GET /api/doctor/profile` — full profile with relations.
+  - `PATCH /api/doctor/profile` — update whitelisted fields (about, qualifications,
+    fee, phone, etc.). Recalculates `profileCompleteness`, `profileFreshness`,
+    and `doctorRank` on every save.
+  - `GET /api/doctor/reviews` — list all reviews.
+  - `PATCH /api/doctor/reviews?id=<reviewId>` — set or clear `doctorReply`.
+- **Frontend** (all new):
+  - `src/components/doctorrank/auth-view.tsx` — login + signup forms with
+    inline validation, show/hide password, loading spinners, error banners,
+    and a toggle between the two modes.
+  - `src/components/doctorrank/doctor-dashboard-view.tsx` — 4-tab dashboard
+    with KPI tiles, a Recharts area chart, appointment management, review
+    replies, and a full profile editor with a sticky save bar.
+- **Server bootstrap** (`src/app/page.tsx`):
+  - Now calls `getCurrentDoctor()` in parallel with the bootstrap data fetch
+    and passes the result as `initialDoctor` to `HomeShell`.
+  - Also passes `specialtiesForSignup` and `citiesForSignup` for the signup form.
+- **Router** (`src/app/home-shell.tsx`):
+  - Added `login`, `signup`, `dashboard` view states.
+  - Added `doctor` auth state (initialised from server, updated on login/logout).
+  - `handleAuthSuccess` sets the doctor and navigates to the dashboard.
+  - `handleLogout` calls the logout API, clears state, and navigates home.
+- **Header** (`src/components/doctorrank/site-header.tsx`):
+  - Accepts `doctor` and `onLogout` props.
+  - Shows a profile dropdown (photo, name, Dashboard, View public profile,
+    Sign out) when logged in.
+  - Shows "Sign in" + "Book" buttons when logged out.
+  - Mobile drawer adapts to auth state.
+- **DB client** (`src/lib/db.ts`):
+  - Reduced Prisma logging from `['query']` to `['warn', 'error']`. The query
+    logging was generating 22MB+ of log output and causing dev-server
+    instability.
+
+### Validation performed
+
+- `bun run lint` — **passes** (0 errors, 0 warnings).
+- `bunx prisma generate` — **passes** (Prisma Client regenerated with new fields).
+- `bunx prisma db push --accept-data-loss` — **passes** (schema applied to SQLite).
+- `bun run scripts/seed.ts` — **passes** (44 doctors now have emails + password hashes).
+- End-to-end API test via curl:
+  - `POST /api/auth/login` with correct credentials → 200, returns doctor object.
+  - `POST /api/auth/login` with wrong password → 401, "Invalid email or password."
+  - `GET /api/auth/me` with session cookie → 200, returns doctor.
+  - `GET /api/doctor/dashboard` with session → 200, returns stats + 30-day timeseries + 3 reviews.
+  - `GET /api/doctor/appointments` with session → 200, 0 appointments (none booked yet).
+  - `GET /api/doctor/profile` with session → 200, full profile.
+  - `PATCH /api/doctor/profile` with `{ consultationFee: 1500 }` → 200, fee updated,
+    DoctorRank recalculated from 76.9 → 82 (profileCompleteness + freshness boosted).
+  - `GET /api/doctor/reviews` with session → 200, 3 reviews.
+  - `POST /api/auth/logout` → 200, session destroyed.
+  - `GET /api/doctor/dashboard` after logout → 401 Unauthorized. ✅
+- Browser test via Agent Browser (desktop 1440×900):
+  - Login page renders with email, password, show/hide toggle.
+  - Filled credentials, clicked Sign in → redirected to dashboard.
+  - Dashboard shows doctor name, 4 tabs, KPI tiles, chart, recent reviews.
+  - Reviews tab shows 3 reviews with Reply buttons.
+  - Profile tab shows editable fields with the previously-updated about text.
+  - Appointments tab shows filter chips + "No appointments found" empty state.
+  - Header profile menu opens with Dashboard / View public profile / Sign out.
+  - Sign out returns to home page with "Sign in" button visible.
+  - Signup page renders all 8 fields with validation-ready inputs.
+
+### Known limitations / follow-up work
+
+- **Sessions are stored in the DB**, not in Redis. For production scale, move
+  session storage to Redis for sub-millisecond lookups and automatic TTL expiry.
+- **No password reset flow** yet. A future iteration should add
+  `POST /api/auth/forgot-password` and `POST /api/auth/reset-password` with
+  email-based tokens.
+- **No email verification** on signup. The doctor's email is trusted as-is.
+  For production, send a verification link before allowing dashboard access.
+- **No rate limiting** on login. A brute-force attack could try many passwords.
+  Add IP-based rate limiting (e.g. 10 attempts per minute) in a future iteration.
+- **The `email` field on Doctor is nullable** to preserve existing seeded data.
+  For a production migration, backfill emails for all existing doctors and then
+  make the field required.
+- **The DoctorRank recalculation in `/api/doctor/profile`** uses the same 7-factor
+  weights as the seed, but `responseRate`, `reviewQuality`, `reviewCount`,
+  `publishedResearch`, and `verificationScore` are not updated by the doctor's
+  own edits — they're driven by external signals (appointments, reviews, admin
+  verification). A future iteration should add a background job that recomputes
+  these factors periodically.
+- **No CSRF protection** on the auth endpoints. The `sameSite: 'lax'` cookie
+  attribute provides reasonable protection, but a production deploy should add
+  explicit CSRF tokens for state-changing requests.
+- **The dev server was unstable** during testing because Prisma's `log: ['query']`
+  was generating 22MB+ of log output, filling the disk and causing crashes.
+  This has been fixed by reducing logging to `['warn', 'error']`. Documented
+  in `AGENTS.md` as a known pitfall.
+
+---
+
 ## [Unreleased] — Iteration 1 (2026-07-16)
 
 **Theme:** Accessibility, error handling, and UX polish on existing flows.

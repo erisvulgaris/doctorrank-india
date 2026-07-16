@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { safeJsonParse } from '@/lib/doctorrank';
+import { getCurrentDoctor, publicDoctor } from '@/lib/auth';
 import { HomeShell } from './home-shell';
 
 export const dynamic = 'force-dynamic';
@@ -134,7 +135,10 @@ async function getBootstrapData() {
 }
 
 export default async function Page() {
-  const data = await getBootstrapData();
+  const [data, currentDoctor] = await Promise.all([
+    getBootstrapData(),
+    getCurrentDoctor(),
+  ]);
 
   return (
     <HomeShell
@@ -144,6 +148,17 @@ export default async function Page() {
       hospitals={data.hospitals}
       topDoctors={data.topDoctors}
       stats={data.stats}
+      initialDoctor={currentDoctor ? publicDoctor({
+        ...currentDoctor,
+        languages: safeJsonParse(currentDoctor.languages, []),
+        conditionsTreated: safeJsonParse(currentDoctor.conditionsTreated, []),
+        procedures: safeJsonParse(currentDoctor.procedures, []),
+        timings: safeJsonParse(currentDoctor.timings, []),
+        acceptedInsurance: safeJsonParse(currentDoctor.acceptedInsurance, []),
+        affiliations: safeJsonParse(currentDoctor.affiliations, []),
+      }) : null}
+      specialtiesForSignup={data.specialties.map((s) => ({ id: s.id, name: s.name, slug: s.slug }))}
+      citiesForSignup={data.cities}
     />
   );
 }

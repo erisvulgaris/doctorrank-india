@@ -14,6 +14,8 @@ import { HospitalView } from '@/components/doctorrank/hospital-view';
 import { ListView } from '@/components/doctorrank/list-view';
 import { RankingView } from '@/components/doctorrank/ranking-view';
 import { AdminShell } from '@/components/admin/admin-shell';
+import { AuthView } from '@/components/doctorrank/auth-view';
+import { DoctorDashboardView } from '@/components/doctorrank/doctor-dashboard-view';
 
 interface HomeShellProps {
   cities: Array<{ slug: string; name: string }>;
@@ -22,6 +24,9 @@ interface HomeShellProps {
   hospitals: any[];
   topDoctors: any[];
   stats: { doctors: number; cities: number; specialties: number; hospitals: number };
+  initialDoctor: any | null;
+  specialtiesForSignup: Array<{ id: string; name: string; slug: string }>;
+  citiesForSignup: Array<{ slug: string; name: string }>;
 }
 
 type ViewState =
@@ -35,7 +40,10 @@ type ViewState =
   | { view: 'conditions' }
   | { view: 'hospitals' }
   | { view: 'ranking' }
-  | { view: 'admin'; section: string };
+  | { view: 'admin'; section: string }
+  | { view: 'login' }
+  | { view: 'signup' }
+  | { view: 'dashboard' };
 
 function HomeShellInner(props: HomeShellProps) {
   const router = useRouter();
@@ -55,11 +63,16 @@ function HomeShellInner(props: HomeShellProps) {
       case 'hospitals':  return { view: 'hospitals' };
       case 'ranking':    return { view: 'ranking' };
       case 'admin':      return { view: 'admin', section: sp.get('section') || 'dashboard' };
+      case 'login':      return { view: 'login' };
+      case 'signup':     return { view: 'signup' };
+      case 'dashboard':  return { view: 'dashboard' };
       default:           return { view: 'home' };
     }
   };
 
   const [state, setState] = useState<ViewState>(getInitialView);
+  // Auth state — initialised from the server, then kept in sync client-side
+  const [doctor, setDoctor] = useState<any | null>(props.initialDoctor);
 
   const updateUrl = useCallback((next: ViewState) => {
     const params = new URLSearchParams();
@@ -87,12 +100,31 @@ function HomeShellInner(props: HomeShellProps) {
       case 'hospitals':   next = { view: 'hospitals' }; break;
       case 'ranking':     next = { view: 'ranking' }; break;
       case 'admin':       next = { view: 'admin', section: payload?.section || 'dashboard' }; break;
+      case 'login':       next = { view: 'login' }; break;
+      case 'signup':      next = { view: 'signup' }; break;
+      case 'dashboard':   next = { view: 'dashboard' }; break;
       default:            next = { view: 'home' };
     }
     setState(next);
     updateUrl(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [updateUrl]);
+
+  // Auth handlers — update local state + URL
+  const handleAuthSuccess = useCallback((newDoctor: any) => {
+    setDoctor(newDoctor);
+    navigate('dashboard');
+  }, [navigate]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore — cookie will be cleared by the server if reachable
+    }
+    setDoctor(null);
+    navigate('home');
+  }, [navigate]);
 
   const handleSearch = useCallback((q: string) => {
     navigate('search', { q });
@@ -138,7 +170,12 @@ function HomeShellInner(props: HomeShellProps) {
         Skip to content
       </a>
 
-      <SiteHeader onNavigate={navigate} currentView={state.view} />
+      <SiteHeader
+        onNavigate={navigate}
+        currentView={state.view}
+        doctor={doctor}
+        onLogout={handleLogout}
+      />
 
       <main id="main-content" className="flex-1" tabIndex={-1}>
         <AnimatePresence mode="wait">
@@ -204,6 +241,24 @@ function HomeShellInner(props: HomeShellProps) {
 
             {state.view === 'ranking' && (
               <RankingView onNavigate={navigate} />
+            )}
+
+            {(state.view === 'login' || state.view === 'signup') && (
+              <AuthView
+                mode={state.view}
+                onNavigate={navigate}
+                onSuccess={handleAuthSuccess}
+                specialties={props.specialtiesForSignup}
+                cities={props.citiesForSignup}
+              />
+            )}
+
+            {state.view === 'dashboard' && (
+              <DoctorDashboardView
+                doctor={doctor}
+                onNavigate={navigate}
+                onLogout={handleLogout}
+              />
             )}
           </motion.div>
         </AnimatePresence>
